@@ -1,6 +1,14 @@
-import { ToolLoopAgent } from 'ai';
+import * as ai from "ai";
 import { google } from '@ai-sdk/google';
 import { createSkillCommands } from '@/lib/tools/skill-commands';
+import { initLogger, wrapAISDK } from "braintrust";
+
+initLogger({
+  projectName: "skill-forge-agent",
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
+
+const { Experimental_Agent: Agent } = wrapAISDK(ai);
 
 const FORGE_INSTRUCTIONS = `You are SkillForge, an agent that learns from YouTube tutorials
 and creates reusable skill files.
@@ -36,8 +44,8 @@ description: One-line description of when to use this skill
 - The skill name should be kebab-case (e.g., stripe-webhooks, aws-cognito)`;
 
 export function createForgeAgent() {
-  return new ToolLoopAgent({
-    model: 'google/gemini-3.0-flash',
+  return new Agent({
+    model: 'google/gemini-3-flash',
     instructions: FORGE_INSTRUCTIONS,
     tools: {
       google_search: google.tools.googleSearch({}),

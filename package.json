@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.2",
+    "@braintrust/otel": "^0.1.2",
+    "@vercel/otel": "^2.1.0",
     "ai": "^6.0.6",
+    "braintrust": "^1.1.1",
     "fuse.js": "^7.1.0",
     "gray-matter": "^4.0.3",
     "next": "16.1.1",
@@ -19,13 +22,13 @@
     "zod": "^4.3.4"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^20.19.27",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.2",
     "eslint-config-next": "16.1.1",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3"
   }
 }
