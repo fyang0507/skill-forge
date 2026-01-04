@@ -16,6 +16,4 @@ Agentic framework where AI agents learn from YouTube tutorials (and/or other onl
 - **No Gemini Filesystem**: Gemini code execution can't access app filesystem - skill I/O handled server-side
 
 ## Project Memory
-
-- `PLAN.md` - Full implementation plan with code snippets
-- `docs/PLAYGROUND_TASKS.md` - Future demo task environments (mock APIs, real API alternatives)
+MEMORY/ holds plans and context docs. Check when needing more background.
