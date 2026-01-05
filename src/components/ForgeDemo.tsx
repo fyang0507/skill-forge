@@ -28,6 +28,15 @@ export default function ForgeDemo() {
     inputRef.current?.focus();
   }, []);
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (textarea) {
+      textarea.style.height = '48px'; // Reset to min height
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+    }
+  }, [input]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || isStreaming) return;
@@ -140,7 +149,7 @@ export default function ForgeDemo() {
                 onKeyDown={handleKeyDown}
                 placeholder="Ask me to learn from a YouTube video or search skills..."
                 rows={1}
-                className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 resize-none"
+                className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 resize-none overflow-y-auto"
                 style={{
                   minHeight: '48px',
                   maxHeight: '200px',
