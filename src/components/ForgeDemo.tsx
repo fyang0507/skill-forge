@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useForgeChat } from '@/hooks/useForgeChat';
 import ChatMessage from './ChatMessage';
+import { CumulativeStatsBar } from './CumulativeStats';
 
 const EXAMPLE_PROMPTS = [
   'What skills do I have?',
@@ -14,7 +15,7 @@ export default function ForgeDemo() {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { messages, status, error, sendMessage, clearMessages, stop } = useForgeChat();
+  const { messages, status, error, cumulativeStats, sendMessage, clearMessages, stop } = useForgeChat();
 
   const isStreaming = status === 'streaming';
 
@@ -136,6 +137,9 @@ export default function ForgeDemo() {
           )}
         </div>
       </div>
+
+      {/* Cumulative stats footer */}
+      <CumulativeStatsBar stats={cumulativeStats} />
 
       {/* Input area */}
       <div className="flex-shrink-0 border-t border-zinc-800 px-6 py-4">

@@ -28,7 +28,9 @@ interface SSEEvent {
     promptTokens?: number;
     completionTokens?: number;
     cachedContentTokenCount?: number;
+    reasoningTokens?: number;
   };
+  executionTimeMs?: number;
 }
 
 function createSSEStream() {
@@ -50,7 +52,12 @@ function createSSEStream() {
 
   function close() {
     if (controller) {
-      controller.close();
+      try {
+        controller.close();
+      } catch {
+        // Controller already closed (client disconnected, etc.)
+      }
+      controller = null;
     }
   }
 
@@ -94,6 +101,7 @@ export async function POST(req: Request) {
 
       while (iteration < MAX_ITERATIONS) {
         iteration++;
+        const iterationStartTime = Date.now();
 
         // Convert to ModelMessage array (preserves structure for KV cache)
         const modelMessages = toModelMessages(messages);
@@ -146,11 +154,15 @@ export async function POST(req: Request) {
         // Get usage metadata including cache stats
         const usage = await result.usage;
         const cacheReadTokens = usage?.inputTokenDetails?.cacheReadTokens;
+        const reasoningTokens = (usage?.outputTokenDetails as { reasoningTokens?: number })?.reasoningTokens;
+        const executionTimeMs = Date.now() - iterationStartTime;
 
         console.log('[Cache Debug] Iteration', iteration, {
           inputTokens: usage?.inputTokens,
           outputTokens: usage?.outputTokens,
           cacheReadTokens,
+          reasoningTokens,
+          executionTimeMs,
           inputTokenDetails: JSON.stringify(usage?.inputTokenDetails),
         });
 
@@ -160,7 +172,9 @@ export async function POST(req: Request) {
             promptTokens: usage?.inputTokens,
             completionTokens: usage?.outputTokens,
             cachedContentTokenCount: cacheReadTokens,
+            reasoningTokens,
           },
+          executionTimeMs,
         });
 
         // Store raw output verbatim as assistant message

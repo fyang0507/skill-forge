@@ -22,7 +22,7 @@ export function formatToolResults(
   executions: Array<{ command: string; result: string }>
 ): string {
   return executions
-    .map(({ command, result }) => `$ ${command}\n${result}`)
+    .map(({ result }) => `\`\`\`terminal\n${result}\n\`\`\``)
     .join('\n\n');
 }
 

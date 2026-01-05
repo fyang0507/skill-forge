@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Message, MessagePart } from '@/hooks/useForgeChat';
+import { MessageStats } from './MessageStats';
 
 interface ChatMessageProps {
   message: Message;
@@ -48,7 +49,7 @@ function ReasoningPart({ part }: { part: MessagePart }) {
 
 // Render a tool (terminal) part - collapsible
 function ToolPart({ part }: { part: MessagePart }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const isLoading = !part.content;
 
   return (
@@ -184,21 +185,24 @@ export default function ChatMessage({ message }: ChatMessageProps) {
     <div className="flex justify-start">
       <div className="max-w-[90%] px-4 py-3 bg-zinc-800 text-zinc-100 rounded-2xl rounded-bl-md">
         {hasParts ? (
-          message.parts.map((part, index) => {
-            if (part.type === 'reasoning') {
-              return <ReasoningPart key={index} part={part} />;
-            }
-            if (part.type === 'tool') {
-              return <ToolPart key={index} part={part} />;
-            }
-            if (part.type === 'agent-tool') {
-              return <AgentToolPart key={index} part={part} />;
-            }
-            if (part.type === 'sources') {
-              return <SourcesPart key={index} part={part} />;
-            }
-            return <TextPart key={index} content={part.content} />;
-          })
+          <>
+            {message.parts.map((part, index) => {
+              if (part.type === 'reasoning') {
+                return <ReasoningPart key={index} part={part} />;
+              }
+              if (part.type === 'tool') {
+                return <ToolPart key={index} part={part} />;
+              }
+              if (part.type === 'agent-tool') {
+                return <AgentToolPart key={index} part={part} />;
+              }
+              if (part.type === 'sources') {
+                return <SourcesPart key={index} part={part} />;
+              }
+              return <TextPart key={index} content={part.content} />;
+            })}
+            <MessageStats stats={message.stats} />
+          </>
         ) : (
           <div className="text-zinc-500 text-sm">Thinking...</div>
         )}

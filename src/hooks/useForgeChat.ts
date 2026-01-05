@@ -12,17 +12,35 @@ export interface MessagePart {
   sources?: Array<{ id: string; url: string; title: string }>; // For source citations
 }
 
+export interface MessageStats {
+  promptTokens?: number;
+  completionTokens?: number;
+  cachedTokens?: number;
+  reasoningTokens?: number;
+  executionTimeMs?: number;
+}
+
+export interface CumulativeStats {
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalCachedTokens: number;
+  totalReasoningTokens: number;
+  totalExecutionTimeMs: number;
+  messageCount: number;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
   parts: MessagePart[];
   timestamp: Date;
+  stats?: MessageStats;
 }
 
 export type ChatStatus = 'ready' | 'streaming' | 'error';
 
 interface SSEEvent {
-  type: 'text' | 'reasoning' | 'tool-call' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error';
+  type: 'text' | 'reasoning' | 'tool-call' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage';
   content?: string;
   command?: string;
   result?: string;
@@ -35,6 +53,14 @@ interface SSEEvent {
   sourceId?: string;
   sourceUrl?: string;
   sourceTitle?: string;
+  // For usage stats
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    cachedContentTokenCount?: number;
+    reasoningTokens?: number;
+  };
+  executionTimeMs?: number;
 }
 
 function generateId(): string {
@@ -51,6 +77,14 @@ export function useForgeChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<ChatStatus>('ready');
   const [error, setError] = useState<string | null>(null);
+  const [cumulativeStats, setCumulativeStats] = useState<CumulativeStats>({
+    totalPromptTokens: 0,
+    totalCompletionTokens: 0,
+    totalCachedTokens: 0,
+    totalReasoningTokens: 0,
+    totalExecutionTimeMs: 0,
+    messageCount: 0,
+  });
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(async (content: string) => {
@@ -80,6 +114,10 @@ export function useForgeChat() {
     const parts: MessagePart[] = [];
     let currentTextContent = '';
     const collectedSources: Array<{ id: string; url: string; title: string }> = [];
+
+    // Stats tracking for this message
+    const messageStartTime = Date.now();
+    let messageStats: MessageStats = {};
 
     // Detect URLs in user message - if present, show URL Context tool
     const userUrls = extractUrls(content);
@@ -270,6 +308,18 @@ export function useForgeChat() {
                 break;
               }
 
+              case 'usage': {
+                // Accumulate stats across iterations
+                messageStats = {
+                  promptTokens: (messageStats.promptTokens || 0) + (event.usage?.promptTokens || 0),
+                  completionTokens: (messageStats.completionTokens || 0) + (event.usage?.completionTokens || 0),
+                  cachedTokens: (messageStats.cachedTokens || 0) + (event.usage?.cachedContentTokenCount || 0),
+                  reasoningTokens: (messageStats.reasoningTokens || 0) + (event.usage?.reasoningTokens || 0),
+                  executionTimeMs: (messageStats.executionTimeMs || 0) + (event.executionTimeMs || 0),
+                };
+                break;
+              }
+
               case 'iteration-end':
                 // No need to create new messages - we keep building the same one
                 break;
@@ -307,7 +357,30 @@ export function useForgeChat() {
                     sources: [...collectedSources],
                   });
                 }
-                updateAssistantMessage();
+
+                // Finalize message stats (use client-measured total time as fallback)
+                const finalStats: MessageStats = {
+                  ...messageStats,
+                  executionTimeMs: messageStats.executionTimeMs || (Date.now() - messageStartTime),
+                };
+
+                // Update cumulative stats
+                setCumulativeStats((prev) => ({
+                  totalPromptTokens: prev.totalPromptTokens + (finalStats.promptTokens || 0),
+                  totalCompletionTokens: prev.totalCompletionTokens + (finalStats.completionTokens || 0),
+                  totalCachedTokens: prev.totalCachedTokens + (finalStats.cachedTokens || 0),
+                  totalReasoningTokens: prev.totalReasoningTokens + (finalStats.reasoningTokens || 0),
+                  totalExecutionTimeMs: prev.totalExecutionTimeMs + (finalStats.executionTimeMs || 0),
+                  messageCount: prev.messageCount + 1,
+                }));
+
+                // Update message with final parts and stats
+                const finalParts = [...parts];
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId ? { ...m, parts: finalParts, stats: finalStats } : m
+                  )
+                );
                 setStatus('ready');
                 break;
               }
@@ -340,6 +413,14 @@ export function useForgeChat() {
     setMessages([]);
     setError(null);
     setStatus('ready');
+    setCumulativeStats({
+      totalPromptTokens: 0,
+      totalCompletionTokens: 0,
+      totalCachedTokens: 0,
+      totalReasoningTokens: 0,
+      totalExecutionTimeMs: 0,
+      messageCount: 0,
+    });
   }, []);
 
   const stop = useCallback(() => {
@@ -354,6 +435,7 @@ export function useForgeChat() {
     messages,
     status,
     error,
+    cumulativeStats,
     sendMessage,
     clearMessages,
     stop,

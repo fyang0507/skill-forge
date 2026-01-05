@@ -2,6 +2,12 @@
 
 Last Updated: 2026-01-05
 
+## 2026-01-05: Token Usage Stats
+
+- Added per-message and cumulative stats display: prompt/completion/cached/reasoning tokens + execution time
+- Created `MessageStats` and `CumulativeStats` components with cache hit ratio calculation
+- Extended SSE stream with `usage` events carrying reasoning tokens and server-measured execution time
+
 ## 2026-01-05: UI Improvements
 
 - Rewrote ChatMessage with parts-based rendering: reasoning traces, tool calls, agent tools, text, and sources
