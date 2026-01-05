@@ -2,6 +2,14 @@
 
 Last Updated: 2026-01-05
 
+## 2026-01-05: UI Improvements
+
+- Rewrote ChatMessage with parts-based rendering: reasoning traces, tool calls, agent tools, text, and sources
+- Added Google Search tool indicator for Gemini grounding (synthetic from `source` events at top of response)
+- Added URL Context tool indicator (heuristic: detects URLs in user message, shows analyzing state)
+- Implemented markdown rendering with `react-markdown` and `@tailwindcss/typography`
+- Extended SSE stream to handle `reasoning-delta`, `tool-call`, `tool-result`, and `source` events
+
 ## 2026-01-05: Shell Execution + Code Cleanup
 
 - Enabled real shell command execution via `curl` (allowlisted) with timeout protection

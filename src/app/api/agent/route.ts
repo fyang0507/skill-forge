@@ -11,11 +11,19 @@ interface Message {
 }
 
 interface SSEEvent {
-  type: 'text' | 'tool-call' | 'tool-result' | 'iteration-end' | 'done' | 'error' | 'usage';
+  type: 'text' | 'reasoning' | 'tool-call' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage';
   content?: string;
   command?: string;
   result?: string;
   hasMoreCommands?: boolean;
+  // For agent tool calls (google_search, url_context)
+  toolName?: string;
+  toolArgs?: Record<string, unknown>;
+  toolCallId?: string;
+  // For source citations (Gemini grounding)
+  sourceId?: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
   usage?: {
     promptTokens?: number;
     completionTokens?: number;
@@ -94,9 +102,45 @@ export async function POST(req: Request) {
         const result = await agent.stream({ messages: modelMessages });
         let fullOutput = '';
 
-        for await (const chunk of result.textStream) {
-          fullOutput += chunk;
-          send({ type: 'text', content: chunk });
+        // Use fullStream to capture both text and tool calls
+        for await (const part of result.fullStream) {
+          switch (part.type) {
+            case 'reasoning-delta':
+              send({ type: 'reasoning', content: part.text });
+              break;
+            case 'text-delta':
+              fullOutput += part.text;
+              send({ type: 'text', content: part.text });
+              break;
+            case 'tool-call':
+              // Native tool calls (if using non-Gemini providers)
+              send({
+                type: 'agent-tool-call',
+                toolName: part.toolName,
+                toolArgs: part.input as Record<string, unknown>,
+                toolCallId: part.toolCallId,
+              });
+              break;
+            case 'tool-result':
+              // Native tool results
+              send({
+                type: 'agent-tool-result',
+                toolCallId: part.toolCallId,
+                result: typeof part.output === 'string' ? part.output : JSON.stringify(part.output),
+              });
+              break;
+            case 'source': {
+              // Gemini grounding sources - citations for the response
+              const sourcePart = part as { id?: string; url?: string; title?: string };
+              send({
+                type: 'source',
+                sourceId: sourcePart.id,
+                sourceUrl: sourcePart.url,
+                sourceTitle: sourcePart.title,
+              });
+              break;
+            }
+          }
         }
 
         // Get usage metadata including cache stats

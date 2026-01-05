@@ -11,6 +11,7 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.2",
     "@braintrust/otel": "^0.1.2",
+    "@tailwindcss/typography": "^0.5.19",
     "@vercel/otel": "^2.1.0",
     "ai": "^6.0.6",
     "braintrust": "^1.1.1",
@@ -19,6 +20,7 @@
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
     "zod": "^4.3.4"
   },
   "devDependencies": {

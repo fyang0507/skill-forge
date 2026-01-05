@@ -2,25 +2,49 @@
 
 import { useState, useCallback, useRef } from 'react';
 
+export interface MessagePart {
+  type: 'text' | 'reasoning' | 'tool' | 'agent-tool' | 'sources';
+  content: string;
+  command?: string; // For shell tool parts
+  toolName?: string; // For agent tool parts (google_search, url_context)
+  toolArgs?: Record<string, unknown>;
+  toolCallId?: string;
+  sources?: Array<{ id: string; url: string; title: string }>; // For source citations
+}
+
 export interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'tool';
-  content: string;
+  role: 'user' | 'assistant';
+  parts: MessagePart[];
   timestamp: Date;
 }
 
 export type ChatStatus = 'ready' | 'streaming' | 'error';
 
 interface SSEEvent {
-  type: 'text' | 'tool-call' | 'tool-result' | 'iteration-end' | 'done' | 'error';
+  type: 'text' | 'reasoning' | 'tool-call' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error';
   content?: string;
   command?: string;
   result?: string;
   hasMoreCommands?: boolean;
+  // For agent tool calls
+  toolName?: string;
+  toolArgs?: Record<string, unknown>;
+  toolCallId?: string;
+  // For source citations
+  sourceId?: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
 }
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
+}
+
+// Detect URLs in text
+function extractUrls(text: string): string[] {
+  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+  return text.match(urlRegex) || [];
 }
 
 export function useForgeChat() {
@@ -39,30 +63,71 @@ export function useForgeChat() {
     const userMessage: Message = {
       id: generateId(),
       role: 'user',
-      content,
+      parts: [{ type: 'text', content }],
       timestamp: new Date(),
     };
 
-    // Build messages array for API (only role + content)
+    // Build messages array for API - flatten parts to content string
     const apiMessages = [...messages, userMessage].map((m) => ({
       role: m.role,
-      content: m.content,
+      content: m.parts.map((p) => (p.type === 'text' ? p.content : `[Shell Output]\n$ ${p.command}\n${p.content}`)).join(''),
     }));
 
     setMessages((prev) => [...prev, userMessage]);
 
     // Mutable state for tracking current streaming position
-    let currentAssistantId = generateId();
-    let currentAssistantContent = '';
-    let pendingToolResults: Array<{ command: string; result: string }> = [];
+    const assistantId = generateId();
+    const parts: MessagePart[] = [];
+    let currentTextContent = '';
+    const collectedSources: Array<{ id: string; url: string; title: string }> = [];
+
+    // Detect URLs in user message - if present, show URL Context tool
+    const userUrls = extractUrls(content);
+    if (userUrls.length > 0) {
+      parts.push({
+        type: 'agent-tool',
+        content: '', // Will be marked complete when response finishes
+        toolName: 'url_context',
+        toolArgs: { url: userUrls[0] }, // Show first URL
+        toolCallId: 'url-context-' + generateId(),
+      });
+    }
+
+    // Helper to strip <shell> tags from text and collapse excessive whitespace
+    const stripShellTags = (text: string) => {
+      return text
+        .replace(/<shell>[\s\S]*?<\/shell>/g, '') // Remove shell tags
+        .replace(/\n{3,}/g, '\n\n'); // Collapse 3+ newlines to 2
+    };
+
+    // Helper to update the assistant message
+    const updateAssistantMessage = () => {
+      const finalParts = [...parts];
+      // Add current text content if not empty
+      const strippedText = stripShellTags(currentTextContent).trim();
+      if (strippedText) {
+        // Check if last part is already a text part we can update
+        const lastPart = finalParts[finalParts.length - 1];
+        if (lastPart?.type === 'text') {
+          finalParts[finalParts.length - 1] = { type: 'text', content: strippedText };
+        } else {
+          finalParts.push({ type: 'text', content: strippedText });
+        }
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, parts: finalParts } : m
+        )
+      );
+    };
 
     // Create initial assistant message placeholder
     setMessages((prev) => [
       ...prev,
       {
-        id: currentAssistantId,
+        id: assistantId,
         role: 'assistant',
-        content: '',
+        parts: [],
         timestamp: new Date(),
       },
     ]);
@@ -104,67 +169,148 @@ export function useForgeChat() {
 
             switch (event.type) {
               case 'text':
-                currentAssistantContent += event.content || '';
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === currentAssistantId
-                      ? { ...m, content: currentAssistantContent }
-                      : m
-                  )
-                );
+                currentTextContent += event.content || '';
+                updateAssistantMessage();
                 break;
 
-              case 'tool-call':
-                // Just track that we're expecting a tool result
+              case 'reasoning': {
+                // Finalize any current text before reasoning
+                const strippedText = stripShellTags(currentTextContent).trim();
+                if (strippedText) {
+                  parts.push({ type: 'text', content: strippedText });
+                  currentTextContent = '';
+                }
+                // Find or create reasoning part
+                const lastPart = parts[parts.length - 1];
+                if (lastPart?.type === 'reasoning') {
+                  lastPart.content += event.content || '';
+                } else {
+                  parts.push({ type: 'reasoning', content: event.content || '' });
+                }
+                updateAssistantMessage();
                 break;
+              }
 
-              case 'tool-result':
-                // Accumulate tool results
-                pendingToolResults.push({
-                  command: event.command || '',
-                  result: event.result || '',
+              case 'tool-call': {
+                // Finalize current text part (stripped of shell tags)
+                const strippedText = stripShellTags(currentTextContent).trim();
+                if (strippedText) {
+                  parts.push({ type: 'text', content: strippedText });
+                }
+                currentTextContent = '';
+                // Add tool part (command only, content empty for now)
+                parts.push({ type: 'tool', command: event.command || '', content: '' });
+                updateAssistantMessage();
+                break;
+              }
+
+              case 'tool-result': {
+                // Update the most recent tool part with the result
+                const lastPart = parts[parts.length - 1];
+                if (lastPart?.type === 'tool' && lastPart.command === event.command) {
+                  lastPart.content = event.result || '';
+                }
+                updateAssistantMessage();
+                break;
+              }
+
+              case 'agent-tool-call': {
+                // Finalize current text part before showing agent tool
+                const strippedText = stripShellTags(currentTextContent).trim();
+                if (strippedText) {
+                  parts.push({ type: 'text', content: strippedText });
+                }
+                currentTextContent = '';
+                // Add agent tool part (google_search, url_context, etc.)
+                parts.push({
+                  type: 'agent-tool',
+                  content: '', // Will be filled by agent-tool-result
+                  toolName: event.toolName,
+                  toolArgs: event.toolArgs,
+                  toolCallId: event.toolCallId,
                 });
+                updateAssistantMessage();
                 break;
+              }
+
+              case 'agent-tool-result': {
+                // Find the matching agent-tool part by toolCallId (may not be the last one)
+                const matchingPart = parts.find(
+                  (p) => p.type === 'agent-tool' && p.toolCallId === event.toolCallId
+                );
+                if (matchingPart) {
+                  matchingPart.content = event.result || '';
+                }
+                updateAssistantMessage();
+                break;
+              }
+
+              case 'source': {
+                // Collect source citations from Gemini grounding
+                if (event.sourceId && event.sourceTitle) {
+                  // On first source, create a synthetic Google Search tool part at the BEGINNING
+                  if (collectedSources.length === 0) {
+                    // Insert Google Search tool part at the start (index 0)
+                    // This way it appears before any text content
+                    parts.unshift({
+                      type: 'agent-tool',
+                      content: '', // Will be populated with sources summary
+                      toolName: 'google_search',
+                      toolArgs: {},
+                      toolCallId: 'grounding-search',
+                    });
+                    updateAssistantMessage();
+                  }
+                  collectedSources.push({
+                    id: event.sourceId,
+                    url: event.sourceUrl || '',
+                    title: event.sourceTitle,
+                  });
+                }
+                break;
+              }
 
               case 'iteration-end':
-                // If we have tool results, add them as a tool message
-                if (pendingToolResults.length > 0) {
-                  const toolContent = pendingToolResults
-                    .map(({ command, result }) => `$ ${command}\n${result}`)
-                    .join('\n\n');
-
-                  const toolMessageId = generateId();
-                  setMessages((prev) => [
-                    ...prev,
-                    {
-                      id: toolMessageId,
-                      role: 'tool',
-                      content: toolContent,
-                      timestamp: new Date(),
-                    },
-                  ]);
-                  pendingToolResults = [];
-                }
-
-                // If there are more commands coming, prepare for next assistant message
-                if (event.hasMoreCommands) {
-                  currentAssistantId = generateId();
-                  currentAssistantContent = '';
-                  setMessages((prev) => [
-                    ...prev,
-                    {
-                      id: currentAssistantId,
-                      role: 'assistant',
-                      content: '',
-                      timestamp: new Date(),
-                    },
-                  ]);
-                }
+                // No need to create new messages - we keep building the same one
                 break;
 
-              case 'done':
+              case 'done': {
+                // Finalize any remaining text
+                const strippedText = stripShellTags(currentTextContent).trim();
+                if (strippedText) {
+                  parts.push({ type: 'text', content: strippedText });
+                  currentTextContent = '';
+                }
+
+                // Mark URL Context tool as complete (if present)
+                const urlContextPart = parts.find(
+                  (p) => p.type === 'agent-tool' && p.toolCallId?.startsWith('url-context-')
+                );
+                if (urlContextPart && !urlContextPart.content) {
+                  urlContextPart.content = 'Analyzed'; // Mark as complete
+                }
+
+                // Update Google Search tool part with sources if any were collected
+                if (collectedSources.length > 0) {
+                  const searchPart = parts.find(
+                    (p) => p.type === 'agent-tool' && p.toolCallId === 'grounding-search'
+                  );
+                  if (searchPart) {
+                    // Populate the search part with sources
+                    searchPart.sources = [...collectedSources];
+                    searchPart.content = collectedSources.map((s) => s.title).join(', ');
+                  }
+                  // Also add sources section at the end for clickable links
+                  parts.push({
+                    type: 'sources',
+                    content: '',
+                    sources: [...collectedSources],
+                  });
+                }
+                updateAssistantMessage();
                 setStatus('ready');
                 break;
+              }
 
               case 'error':
                 setError(event.content || 'Unknown error');
