@@ -22,6 +22,7 @@ Skills encode two knowledge types:
 - Next.js + React frontend with SSE streaming
 - Gemini API with KV caching for context persistence
 - Parts-based message rendering (reasoning, tools, text, sources)
+- SQLite db for message persistency
 
 ## Project Memory
 
