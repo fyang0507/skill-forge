@@ -51,7 +51,15 @@ function ReasoningPart({ part }: { part: MessagePart }) {
 // Render a tool (terminal) part - collapsible (styled like AgentToolPart for consistency)
 function ToolPart({ part }: { part: MessagePart }) {
   const [expanded, setExpanded] = useState(false);
-  const isLoading = !part.content;
+  const status = part.toolStatus || (part.content ? 'completed' : 'queued');
+
+  // Status indicator colors and labels
+  const statusConfig = {
+    queued: { color: 'bg-zinc-500', label: 'queued', animate: false },
+    running: { color: 'bg-yellow-500', label: 'running...', animate: true },
+    completed: { color: 'bg-green-500', label: null, animate: false },
+  };
+  const config = statusConfig[status];
 
   return (
     <div className="my-2">
@@ -60,16 +68,16 @@ function ToolPart({ part }: { part: MessagePart }) {
         className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-300 transition-colors"
       >
         <ChevronIcon expanded={expanded} />
-        <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
+        <div className={`w-2 h-2 rounded-full ${config.color} ${config.animate ? 'animate-pulse' : ''}`} />
         <span className="font-mono text-zinc-400 truncate max-w-[400px]">
           $ {part.command}
         </span>
-        {isLoading && <span className="text-zinc-500 italic">running...</span>}
+        {config.label && <span className="text-zinc-500 italic">{config.label}</span>}
       </button>
       {expanded && (
         <div className="mt-1 ml-5 text-xs bg-zinc-900 rounded p-2 max-h-[200px] overflow-y-auto">
           <pre className="font-mono text-zinc-300 whitespace-pre-wrap break-all">
-            {part.content || <span className="text-zinc-500">Running...</span>}
+            {part.content || <span className="text-zinc-500">{status === 'running' ? 'Running...' : 'Queued...'}</span>}
           </pre>
         </div>
       )}

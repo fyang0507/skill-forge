@@ -11,7 +11,7 @@ interface Message {
 }
 
 interface SSEEvent {
-  type: 'text' | 'reasoning' | 'tool-call' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output';
+  type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output';
   content?: string;
   command?: string;
   result?: string;
@@ -48,8 +48,13 @@ function createSSEStream() {
 
   function send(event: SSEEvent) {
     if (controller) {
-      const data = `data: ${JSON.stringify(event)}\n\n`;
-      controller.enqueue(encoder.encode(data));
+      try {
+        const data = `data: ${JSON.stringify(event)}\n\n`;
+        controller.enqueue(encoder.encode(data));
+      } catch {
+        // Controller already closed (client disconnected, etc.)
+        controller = null;
+      }
     }
   }
 
@@ -113,6 +118,10 @@ export async function POST(req: Request) {
         const result = await agent.stream({ messages: modelMessages });
         let fullOutput = '';
 
+        // Track shell commands detected during streaming for proper sequencing
+        let lastProcessedIndex = 0;
+        const detectedCommands: string[] = [];
+
         // Use fullStream to capture both text and tool calls
         for await (const part of result.fullStream) {
           switch (part.type) {
@@ -122,6 +131,22 @@ export async function POST(req: Request) {
             case 'text-delta':
               fullOutput += part.text;
               send({ type: 'text', content: part.text });
+
+              // Detect complete shell commands as they stream in
+              // This ensures tool-call events are sent in sequence with text
+              const shellRegex = /<shell>([\s\S]*?)<\/shell>/g;
+              let match;
+              while ((match = shellRegex.exec(fullOutput)) !== null) {
+                // Only process commands we haven't seen yet
+                if (match.index >= lastProcessedIndex) {
+                  const command = match[1].trim();
+                  if (command && !detectedCommands.includes(command)) {
+                    detectedCommands.push(command);
+                    send({ type: 'tool-call', command });
+                  }
+                  lastProcessedIndex = match.index + match[0].length;
+                }
+              }
               break;
             case 'tool-call':
               // Native tool calls (if using non-Gemini providers)
@@ -186,8 +211,11 @@ export async function POST(req: Request) {
         // Store raw output verbatim as assistant message
         messages.push({ role: 'assistant', content: fullOutput });
 
-        // Parse for commands (read-only, don't modify the message)
-        const commands = extractCommands(fullOutput);
+        // Use commands detected during streaming (already sent tool-call events)
+        // Fall back to extractCommands for any edge cases
+        const commands = detectedCommands.length > 0
+          ? detectedCommands
+          : extractCommands(fullOutput);
 
         if (commands.length === 0) {
           // No commands, we're done
@@ -196,10 +224,16 @@ export async function POST(req: Request) {
         }
 
         // Execute commands and create separate tool message
+        // Note: tool-call events were already sent during streaming
         const executions: Array<{ command: string; result: string }> = [];
 
         for (const command of commands) {
-          send({ type: 'tool-call', command });
+          // Only send tool-call if we're using the fallback path
+          if (detectedCommands.length === 0) {
+            send({ type: 'tool-call', command });
+          }
+          // Signal that this command is now actually executing
+          send({ type: 'tool-start', command });
           const result = await executeCommand(command);
           executions.push({ command, result });
           send({ type: 'tool-result', command, result });

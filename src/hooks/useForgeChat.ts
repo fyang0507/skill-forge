@@ -6,6 +6,7 @@ export interface MessagePart {
   type: 'text' | 'reasoning' | 'tool' | 'agent-tool' | 'sources';
   content: string;
   command?: string; // For shell tool parts
+  toolStatus?: 'queued' | 'running' | 'completed'; // For shell tool parts
   toolName?: string; // For agent tool parts (google_search, url_context)
   toolArgs?: Record<string, unknown>;
   toolCallId?: string;
@@ -48,7 +49,7 @@ export interface Message {
 export type ChatStatus = 'ready' | 'streaming' | 'error';
 
 interface SSEEvent {
-  type: 'text' | 'reasoning' | 'tool-call' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output';
+  type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output';
   content?: string;
   command?: string;
   result?: string;
@@ -162,9 +163,11 @@ export function useForgeChat() {
     }
 
     // Helper to strip <shell> tags from text and collapse excessive whitespace
+    // Also strips incomplete shell tags that are still streaming
     const stripShellTags = (text: string) => {
       return text
-        .replace(/<shell>[\s\S]*?<\/shell>/g, '') // Remove shell tags
+        .replace(/<shell>[\s\S]*?<\/shell>/g, '') // Remove complete shell tags
+        .replace(/<shell>[\s\S]*$/g, '') // Remove incomplete shell tag at end (still streaming)
         .replace(/\n{3,}/g, '\n\n'); // Collapse 3+ newlines to 2
     };
 
@@ -267,17 +270,32 @@ export function useForgeChat() {
                   parts.push({ type: 'text', content: strippedText });
                 }
                 currentTextContent = '';
-                // Add tool part (command only, content empty for now)
-                parts.push({ type: 'tool', command: event.command || '', content: '' });
+                // Add tool part (queued status - not yet executing)
+                parts.push({ type: 'tool', command: event.command || '', content: '', toolStatus: 'queued' });
+                updateAssistantMessage();
+                break;
+              }
+
+              case 'tool-start': {
+                // Mark the tool as actually running (not just queued)
+                const startingPart = parts.find(
+                  (p) => p.type === 'tool' && p.command === event.command && p.toolStatus === 'queued'
+                );
+                if (startingPart) {
+                  startingPart.toolStatus = 'running';
+                }
                 updateAssistantMessage();
                 break;
               }
 
               case 'tool-result': {
-                // Update the most recent tool part with the result
-                const lastPart = parts[parts.length - 1];
-                if (lastPart?.type === 'tool' && lastPart.command === event.command) {
-                  lastPart.content = event.result || '';
+                // Find the matching tool part by command (may not be the last one)
+                const matchingPart = parts.find(
+                  (p) => p.type === 'tool' && p.command === event.command && p.toolStatus !== 'completed'
+                );
+                if (matchingPart) {
+                  matchingPart.content = event.result || '';
+                  matchingPart.toolStatus = 'completed';
                 }
                 updateAssistantMessage();
                 break;
