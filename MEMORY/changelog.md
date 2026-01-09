@@ -2,6 +2,12 @@
 
 Last Updated: 2026-01-08
 
+## 2026-01-08: Fix Lossy Message Persistence
+
+- Fixed data loss when switching conversations: now stores both `iterations` and `parts` in DB
+- Deleted lossy `reconstructParts()` function that couldn't recreate agent tools, reasoning, or sources
+- Breaking change: old conversation data no longer compatible (dev mode, no migration needed)
+
 ## 2026-01-08: Conversation Persistence + Sidebar
 
 - Implemented SQLite persistence with conversations/messages tables and full CRUD API routes

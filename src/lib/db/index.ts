@@ -178,9 +178,10 @@ export async function saveMessage(
   const client = getDb();
 
   // Content format differs by role
+  // Assistant messages store both iterations and parts to preserve full fidelity
   const content = message.role === 'user'
     ? message.rawContent
-    : JSON.stringify(message.iterations || []);
+    : JSON.stringify({ iterations: message.iterations || [], parts: message.parts || [] });
 
   const metadata = message.stats ? JSON.stringify({ stats: message.stats }) : null;
 
@@ -208,81 +209,29 @@ export async function saveMessage(
 // Hydrate a DB row back to a Message
 export function hydrateMessage(row: DbMessage): Message {
   const isAssistant = row.role === 'assistant';
-  const iterations: AgentIteration[] | undefined = isAssistant
-    ? JSON.parse(row.content)
-    : undefined;
   const metadata = row.metadata ? JSON.parse(row.metadata) : {};
+
+  if (!isAssistant) {
+    return {
+      id: row.id,
+      role: row.role,
+      rawContent: row.content,
+      iterations: undefined,
+      parts: [{ type: 'text', content: row.content }],
+      timestamp: new Date(row.timestamp),
+      stats: metadata.stats,
+    };
+  }
+
+  const { iterations, parts } = JSON.parse(row.content);
 
   return {
     id: row.id,
     role: row.role,
-    rawContent: isAssistant ? '' : row.content,
-    iterations: iterations,
-    parts: reconstructParts(row.role, isAssistant ? iterations : row.content),
+    rawContent: '',
+    iterations,
+    parts,
     timestamp: new Date(row.timestamp),
     stats: metadata.stats,
   };
-}
-
-// Reconstruct MessagePart[] from iterations (for assistant) or content (for user)
-function reconstructParts(role: string, data: AgentIteration[] | string | undefined): MessagePart[] {
-  if (role === 'user') {
-    return [{ type: 'text', content: data as string }];
-  }
-
-  const iterations = data as AgentIteration[] | undefined;
-  if (!iterations || iterations.length === 0) {
-    return [];
-  }
-
-  const parts: MessagePart[] = [];
-
-  for (const iter of iterations) {
-    // Parse rawContent to extract thinking, shell commands, and text
-    let remaining = iter.rawContent;
-
-    // Extract thinking blocks
-    const thinkingMatches = remaining.match(/<thinking>([\s\S]*?)<\/thinking>/g);
-    if (thinkingMatches) {
-      for (const match of thinkingMatches) {
-        const content = match.replace(/<\/?thinking>/g, '').trim();
-        if (content) {
-          parts.push({ type: 'reasoning', content });
-        }
-      }
-      remaining = remaining.replace(/<thinking>[\s\S]*?<\/thinking>/g, '');
-    }
-
-    // Extract shell commands and interleaved text
-    const shellRegex = /<shell>([\s\S]*?)<\/shell>/g;
-    let lastIndex = 0;
-    let shellMatch;
-
-    while ((shellMatch = shellRegex.exec(remaining)) !== null) {
-      // Add text before this shell command
-      const textBefore = remaining.slice(lastIndex, shellMatch.index).trim();
-      if (textBefore) {
-        parts.push({ type: 'text', content: textBefore });
-      }
-
-      // Add the tool part
-      const command = shellMatch[1].trim();
-      parts.push({
-        type: 'tool',
-        command,
-        content: iter.toolOutput || '',
-        toolStatus: 'completed',
-      });
-
-      lastIndex = shellMatch.index + shellMatch[0].length;
-    }
-
-    // Add remaining text after last shell command
-    const remainingText = remaining.slice(lastIndex).trim();
-    if (remainingText) {
-      parts.push({ type: 'text', content: remainingText });
-    }
-  }
-
-  return parts;
 }
