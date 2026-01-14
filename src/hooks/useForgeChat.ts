@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { uiToApiMessages, type UIMessage } from '@/lib/messages/transform';
 
 export interface MessagePart {
   type: 'text' | 'reasoning' | 'tool' | 'agent-tool' | 'sources';
@@ -160,21 +161,7 @@ export function useForgeChat(options?: UseForgeChatOptions) {
     };
 
     // Build messages array for API - expand assistant iterations to match server structure
-    const apiMessages: Array<{ role: string; content: string }> = [];
-    for (const m of [...messages, userMessage]) {
-      if (m.role === 'user') {
-        apiMessages.push({ role: 'user', content: m.rawContent });
-      } else if (m.iterations && m.iterations.length > 0) {
-        // Assistant messages: expand iterations to match server's conversation structure
-        for (const iter of m.iterations) {
-          apiMessages.push({ role: 'assistant', content: iter.rawContent });
-          if (iter.toolOutput) {
-            apiMessages.push({ role: 'user', content: `[Shell Output]\n${iter.toolOutput}` });
-          }
-        }
-      }
-      // Skip assistant messages without iterations (shouldn't happen in normal flow)
-    }
+    const apiMessages = uiToApiMessages([...messages, userMessage] as UIMessage[]);
 
     setMessages((prev) => [...prev, userMessage]);
 

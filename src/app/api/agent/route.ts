@@ -1,17 +1,12 @@
-import { ModelMessage } from 'ai';
 import { taskAgent } from '@/lib/agent/task-agent';
 import { skillAgent } from '@/lib/agent/skill-agent';
 import { extractCommands, formatToolResults } from '@/lib/tools/command-parser';
 import { executeCommand } from '@/lib/tools/skill-commands';
+import { toModelMessages, type APIMessage } from '@/lib/messages/transform';
 
 const MAX_ITERATIONS = 10;
 
 type AgentMode = 'task' | 'codify-skill';
-
-interface Message {
-  role: 'user' | 'assistant' | 'tool';
-  content: string;
-}
 
 interface SSEEvent {
   type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output';
@@ -76,27 +71,9 @@ function createSSEStream() {
 }
 
 
-/**
- * Convert our internal message format to AI SDK ModelMessage format.
- * This preserves each message as a separate entry for KV cache efficiency.
- */
-function toModelMessages(messages: Message[]): ModelMessage[] {
-  return messages.map((m): ModelMessage => {
-    if (m.role === 'user') {
-      return { role: 'user', content: m.content };
-    }
-    if (m.role === 'assistant') {
-      return { role: 'assistant', content: m.content };
-    }
-    // Tool results - use 'user' role with clear prefix since we don't have
-    // actual tool calls (we parse <shell> tags from assistant text output)
-    return { role: 'user', content: `[Shell Output]\n${m.content}` };
-  });
-}
-
 export async function POST(req: Request) {
   const { messages: initialMessages, mode = 'task', conversationId } = await req.json() as {
-    messages: Message[];
+    messages: APIMessage[];
     mode?: AgentMode;
     conversationId?: string;
   };
@@ -113,7 +90,7 @@ export async function POST(req: Request) {
       // For codify-skill mode: build transcript from history, create agent with closure
       // The skill agent gets a blank context and calls get-processed-transcript tool
       let agent;
-      let messages: Message[];
+      let messages: APIMessage[];
 
       if (mode === 'codify-skill') {
         agent = skillAgent;
@@ -262,7 +239,7 @@ export async function POST(req: Request) {
         }
 
         // Store results as separate tool message
-        const toolMessage: Message = {
+        const toolMessage: APIMessage = {
           role: 'tool',
           content: formatToolResults(executions),
         };

@@ -1,6 +1,7 @@
 import * as ai from "ai";
 import { getConversation } from '@/lib/db';
 import { initLogger, wrapAISDK } from "braintrust";
+import { toTranscriptString, type DBMessage } from '@/lib/messages/transform';
 
 initLogger({
   projectName: "skill-forge-agent",
@@ -25,33 +26,6 @@ Transcript:
 `;
 
 /**
- * Build a transcript string from messages fetched from the database.
- * Only includes task messages (excludes codify-skill conversation).
- */
-function buildTranscriptFromMessages(messages: Array<{
-  role: 'user' | 'assistant';
-  rawContent: string;
-  iterations?: Array<{ rawContent: string; toolOutput?: string }>;
-}>): string {
-  const parts: string[] = [];
-
-  for (const m of messages) {
-    if (m.role === 'user') {
-      parts.push(`[user] ${m.rawContent}`);
-    } else if (m.iterations && m.iterations.length > 0) {
-      for (const iter of m.iterations) {
-        parts.push(`[assistant] ${iter.rawContent}`);
-        if (iter.toolOutput) {
-          parts.push(`[tool] ${iter.toolOutput}`);
-        }
-      }
-    }
-  }
-
-  return parts.join('\n\n');
-}
-
-/**
  * Fetch transcript from database by conversation ID and process it.
  * Returns a compressed summary for skill codification.
  */
@@ -63,8 +37,8 @@ export async function processTranscript(conversationId: string): Promise<string>
     return 'Error: Conversation not found';
   }
 
-  // Build transcript from messages
-  const rawTranscript = buildTranscriptFromMessages(result.messages);
+  // Build transcript from messages using centralized transform utility
+  const rawTranscript = toTranscriptString(result.messages as DBMessage[]);
 
   if (!rawTranscript.trim()) {
     return 'Error: No messages found in conversation';
