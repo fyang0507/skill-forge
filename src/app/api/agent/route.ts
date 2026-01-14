@@ -95,9 +95,10 @@ function toModelMessages(messages: Message[]): ModelMessage[] {
 }
 
 export async function POST(req: Request) {
-  const { messages: initialMessages, mode = 'task' } = await req.json() as {
+  const { messages: initialMessages, mode = 'task', conversationId } = await req.json() as {
     messages: Message[];
     mode?: AgentMode;
+    conversationId?: string;
   };
 
   if (!initialMessages || !Array.isArray(initialMessages) || initialMessages.length === 0) {
@@ -109,8 +110,23 @@ export async function POST(req: Request) {
   // Run the agent loop in the background
   (async () => {
     try {
-      const agent = mode === 'codify-skill' ? skillAgent : taskAgent;
-      const messages: Message[] = [...initialMessages];
+      // For codify-skill mode: build transcript from history, create agent with closure
+      // The skill agent gets a blank context and calls get-processed-transcript tool
+      let agent;
+      let messages: Message[];
+
+      if (mode === 'codify-skill') {
+        agent = skillAgent;
+        // Get the last message (the codify prompt) and inject conversationId
+        const lastMessage = initialMessages[initialMessages.length - 1];
+        const messageWithContext = conversationId
+          ? { ...lastMessage, content: `[Conversation ID: ${conversationId}]\n\n${lastMessage.content}` }
+          : lastMessage;
+        messages = [messageWithContext];
+      } else {
+        agent = taskAgent;
+        messages = [...initialMessages];
+      }
       let iteration = 0;
 
       while (iteration < MAX_ITERATIONS) {

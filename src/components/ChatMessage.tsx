@@ -112,18 +112,21 @@ function ToolPart({ part }: { part: MessagePart }) {
   );
 }
 
-// Render agent tool call (google_search, url_context) - collapsible
+// Render agent tool call (google_search, url_context, get-processed-transcript) - collapsible
 function AgentToolPart({ part }: { part: MessagePart }) {
   const [expanded, setExpanded] = useState(false);
 
   // Tool names may have namespace prefix like "google_search:google_search"
   const toolName = part.toolName || '';
   const isGoogleSearch = toolName.includes('google_search');
+  const isTranscript = toolName.includes('get-processed-transcript');
   const toolDisplayName = isGoogleSearch
     ? 'Google Search'
     : toolName.includes('url_context')
       ? 'URL Context'
-      : toolName || 'Tool';
+      : isTranscript
+        ? 'Task Summary'
+        : toolName || 'Tool';
 
   // Extract search query or URL from args
   const args = part.toolArgs as Record<string, unknown> | undefined;
@@ -133,6 +136,10 @@ function AgentToolPart({ part }: { part: MessagePart }) {
   const isLoading = !part.content;
   const sources = part.sources || [];
 
+  // For transcript tool, use purple color; for search tools, use blue
+  const dotColor = isTranscript ? 'bg-purple-500' : 'bg-blue-500';
+  const loadingText = isTranscript ? 'processing...' : 'searching...';
+
   return (
     <div className="my-2">
       <button
@@ -140,18 +147,18 @@ function AgentToolPart({ part }: { part: MessagePart }) {
         className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-300 transition-colors"
       >
         <ChevronIcon expanded={expanded} />
-        <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-pulse' : 'bg-blue-500'}`} />
+        <div className={`w-2 h-2 rounded-full ${dotColor} ${isLoading ? 'animate-pulse' : ''}`} />
         <span className="font-medium">{toolDisplayName}</span>
         {toolDetail && (
           <span className="text-zinc-500 truncate max-w-[250px]">{String(toolDetail)}</span>
         )}
-        {isLoading && <span className="text-zinc-500 italic">searching...</span>}
+        {isLoading && <span className="text-zinc-500 italic">{loadingText}</span>}
         {!isLoading && sources.length > 0 && (
           <span className="text-zinc-500">{sources.length} sources</span>
         )}
       </button>
       {expanded && (
-        <div className="mt-1 ml-5 text-xs bg-zinc-900 rounded p-2 max-h-[200px] overflow-y-auto">
+        <div className={`mt-1 ml-5 text-xs bg-zinc-900 rounded p-2 ${isTranscript ? 'max-h-[400px]' : 'max-h-[200px]'} overflow-y-auto`}>
           {isGoogleSearch && sources.length > 0 ? (
             <ul className="space-y-1">
               {sources.map((source) => (
@@ -160,6 +167,12 @@ function AgentToolPart({ part }: { part: MessagePart }) {
                 </li>
               ))}
             </ul>
+          ) : isTranscript && part.content ? (
+            <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {part.content}
+              </ReactMarkdown>
+            </div>
           ) : part.content ? (
             <pre className="whitespace-pre-wrap break-all text-zinc-500">{part.content}</pre>
           ) : null}

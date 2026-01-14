@@ -2,7 +2,7 @@
 
 ## Product Vision
 
-Agentic framework where AI agents learn from online resources (YouTube, docs) and codify learnings into reusable skills.
+Agentic framework where AI agents learn from trial-and-error execution trajectory and codify learnings into reusable skills.
 
 **Core Value:** Run 1 = Research + Skill Creation. Run 2 = Skill Lookup + Skip Research.
 
@@ -17,8 +17,8 @@ Skills encode two knowledge types:
 - **Skill Agent** (`skill-agent.ts`): Dedicated to analyzing transcripts and codifying/updating skills
 
 **Other Components:**
-- **Shell**: Auto-execution via `<shell>` tags; allowlisted commands only (`curl`)
-- **Skills CLI**: `skill list/search/get/set` commands handled server-side
+- **Shell**: Auto-execution via `<shell>` tags; allowlisted commands only (e.g., `curl`)
+- **Skills CLI**: `skill list/search/get/set/suggest` commands handled server-side
 - **Storage**: Abstraction layer - LocalStorage (filesystem) for dev, CloudStorage (Vercel Blob + Turso) for prod
 
 ## Tech Stack
@@ -31,4 +31,4 @@ Skills encode two knowledge types:
 
 ## Project Memory
 
-`MEMORY/` holds plans, progress logs, and proposals. Check `MEMORY/changelog.md` for recent updates.
+`MEMORY/` directory holds plans, changelogs, and completed issues. Check `MEMORY/changelog.md` for recent updates.

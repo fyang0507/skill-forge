@@ -1,6 +1,8 @@
 import * as ai from "ai";
+import { z } from 'zod';
 import { GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
 import { initLogger, wrapAISDK } from "braintrust";
+import { processTranscript } from './tools/process-transcript';
 
 initLogger({
   projectName: "skill-forge-agent",
@@ -11,33 +13,32 @@ const { Experimental_Agent: Agent } = wrapAISDK(ai);
 
 const SKILL_AGENT_INSTRUCTIONS = `You are a Skill Codification Agent.
 
-You have been given a conversation transcript where a task was successfully completed.
-Your job is to extract and codify the procedural knowledge gained.
+# First Step - REQUIRED
+Call the get-processed-transcript tool with the conversation ID to get the summary of the task conversation.
+The conversation ID will be provided in the first user message.
+You have no context about the task until you call this tool.
 
-# Your Task
-1. Check if this is updating an existing skill (look for "skillToUpdate" in the request)
-2. If updating: First read the existing skill with <shell>skill get skill-name</shell>
-3. Analyze the transcript to identify what was learned or what corrections are needed
-4. Determine if this is worth codifying (skip if trivial or one-step)
-5. Create or update the skill
+# After Getting Summary
+Analyze the summary to determine if this is worth codifying as a skill.
 
-# Updating vs Creating
-- **Update**: If "skillToUpdate" is specified, read the existing skill first, then merge the new learnings with existing content. Preserve what still works, fix what was wrong, add what was missing.
-- **Create**: If no existing skill, create a new one from scratch.
+## Check for Existing Skill
+If the request mentions "skillToUpdate", first read the existing skill:
+<shell>skill get skill-name</shell>
 
-# What Makes a Good Skill
+Then merge the new learnings with existing content. Preserve what still works, fix what was wrong, add what was missing.
+
+## Worth Codifying
 - Multi-step procedures with non-obvious ordering
 - Integration gotchas (auth flows, API quirks, error handling)
 - Debugging patterns that required trial-and-error
 - User-specific preferences or constraints discovered
 - Workarounds for common errors or edge cases
 
-# What to Skip
-- One-step operations
-- Generic model capabilities (summarization, translation, explanations)
-- Overly specific one-off tasks that won't repeat
-- Tasks where nothing was actually "learned" (just following docs)
-- Simple lookups or queries
+## Skip If
+- Single-step operations
+- Generic model capabilities (summarization, translation)
+- Overly specific one-off tasks
+- Nothing was actually "learned"
 
 # Output Format
 
@@ -52,20 +53,40 @@ description: One-line description
 ...
 "</shell>
 
-If not worth saving, explain briefly why. For example:
-"This was a straightforward one-step task with no procedural knowledge to capture."
+If not worth saving, explain briefly why.
 
 # Guidelines
 - Name skills generically (e.g., "notion-api-auth" not "fix-johns-notion-error")
 - Focus on the procedure, not the specific data used
 - Include error handling patterns discovered during the task
-- When updating, clearly note what changed (e.g., "Updated: auth now requires OAuth2 instead of API key")
+- When updating, clearly note what changed
 - Be concise but complete`;
 
+/**
+ * Tool that fetches and processes the transcript from the database.
+ * Accepts conversationId as parameter to fetch the correct conversation.
+ */
+const processedTranscriptTool = {
+  description: 'Get the processed transcript from the previous task conversation. Call this FIRST with the conversation ID to get context for skill creation.',
+  inputSchema: z.object({
+    conversationId: z.string().describe('The conversation ID to fetch the transcript from'),
+  }),
+  execute: async ({ conversationId }: { conversationId: string }) => {
+    return processTranscript(conversationId);
+  },
+};
+
+/**
+ * Creates the Skill Agent singleton.
+ * The agent uses a tool that fetches the transcript from DB by conversation ID.
+ */
 function createSkillAgent() {
   return new Agent({
     model: 'google/gemini-3-pro-preview',
     instructions: SKILL_AGENT_INSTRUCTIONS,
+    tools: {
+      'get-processed-transcript': processedTranscriptTool,
+    },
     providerOptions: {
       google: {
         thinkingConfig: {

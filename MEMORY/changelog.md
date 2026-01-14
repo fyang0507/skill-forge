@@ -1,6 +1,12 @@
 # Changelog
 
-Last Updated: 2026-01-13
+Last Updated: 2026-01-14
+
+## 2026-01-14: Skill Agent Transcript Tool
+
+- Added `get-processed-transcript` tool that fetches task conversation from DB and summarizes with Gemini Flash
+- Skill agent now starts with blank context—calls tool first to get compressed transcript instead of receiving full message history
+- Updated UI to show "Task Summary" tool call with purple indicator and markdown-rendered output
 
 ## 2026-01-13: Sidebar Skills Pane (VSCode-style)
 
