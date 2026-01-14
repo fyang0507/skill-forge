@@ -1,5 +1,5 @@
 import * as ai from "ai";
-import { google, GoogleGenerativeAIProviderOptions} from '@ai-sdk/google';
+import { GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
 import { initLogger, wrapAISDK } from "braintrust";
 
 initLogger({
@@ -66,10 +66,6 @@ export function createSkillAgent() {
   return new Agent({
     model: 'google/gemini-3-pro-preview',
     instructions: SKILL_AGENT_INSTRUCTIONS,
-    tools: {
-      google_search: google.tools.googleSearch({}),
-      url_context: google.tools.urlContext({}),
-    },
     providerOptions: {
       google: {
         thinkingConfig: {

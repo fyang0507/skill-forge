@@ -1,5 +1,5 @@
 import { createClient, Client } from '@libsql/client';
-import type { Message, AgentIteration, MessageStats, MessagePart } from '@/hooks/useForgeChat';
+import type { Message } from '@/hooks/useForgeChat';
 
 let db: Client | null = null;
 
@@ -59,6 +59,26 @@ export async function initDb(): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS idx_messages_conversation
     ON messages(conversation_id, sequence_order)
+  `);
+
+  // Skills tables for cloud storage
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS skills (
+      name TEXT PRIMARY KEY,
+      description TEXT,
+      updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+    )
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS skill_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      skill_name TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      blob_url TEXT NOT NULL,
+      FOREIGN KEY (skill_name) REFERENCES skills(name) ON DELETE CASCADE,
+      UNIQUE(skill_name, filename)
+    )
   `);
 }
 

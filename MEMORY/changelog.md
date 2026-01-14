@@ -1,6 +1,12 @@
 # Changelog
 
-Last Updated: 2026-01-08
+Last Updated: 2026-01-11
+
+## 2026-01-11: Cloud Skill Storage + Lint Fixes
+
+- Implemented storage abstraction: LocalStorage (filesystem) for dev, CloudStorage (Vercel Blob + Turso) for production
+- Added skills API endpoints (GET/POST/DELETE) and SkillsPanel UI with delete functionality
+- Fixed all lint errors: removed unused imports, added venv to eslint ignores, fixed React hooks deps
 
 ## 2026-01-08: Fix Lossy Message Persistence
 

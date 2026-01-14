@@ -7,6 +7,7 @@ import { useConversations } from '@/hooks/useConversations';
 import ChatMessage, { SkillSuggestion } from './ChatMessage';
 import { CumulativeStatsBar } from './CumulativeStats';
 import { Sidebar } from './Sidebar';
+import { SkillsPanel } from './SkillsPanel';
 
 const EXAMPLE_PROMPTS = [
   'What skills do I have?',
@@ -17,6 +18,7 @@ const EXAMPLE_PROMPTS = [
 export default function ForgeDemo() {
   const [input, setInput] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [skillsPanelOpen, setSkillsPanelOpen] = useState(false);
   const [codifyingMessageId, setCodifyingMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -172,12 +174,15 @@ export default function ForgeDemo() {
   }, [conversations, deleteConversation, currentId, handleNewChat, handleSelectConversation, clearMessages, setCurrentId, router]);
 
   // Initialize from URL on mount or browser navigation
+  // This syncs React state with the browser URL (an external system),
+  // which is a valid use case for setState in effects
   useEffect(() => {
     // Skip if we're in the middle of a programmatic switch
     if (isSwitchingRef.current) return;
 
     const id = searchParams.get('id');
     if (id && id !== currentIdRef.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       handleSelectConversation(id);
     }
   }, [searchParams, handleSelectConversation]);
@@ -251,14 +256,35 @@ export default function ForgeDemo() {
                 Learn from YouTube tutorials and create reusable skills
               </p>
             </div>
-            {messages.length > 0 && (
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => handleNewChat()}
-                className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+                onClick={() => setSkillsPanelOpen(true)}
+                className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                New chat
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                  />
+                </svg>
+                Skills
               </button>
-            )}
+              {messages.length > 0 && (
+                <button
+                  onClick={() => handleNewChat()}
+                  className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+                >
+                  New chat
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
@@ -391,6 +417,9 @@ export default function ForgeDemo() {
           </form>
         </div>
       </div>
+
+      {/* Skills Panel Modal */}
+      <SkillsPanel isOpen={skillsPanelOpen} onClose={() => setSkillsPanelOpen(false)} />
     </div>
   );
 }

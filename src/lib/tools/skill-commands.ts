@@ -1,15 +1,11 @@
-import fs from 'fs/promises';
-import path from 'path';
-import matter from 'gray-matter';
-import Fuse from 'fuse.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { getStorage } from '../skills/storage';
 
 const execAsync = promisify(exec);
 
-const SKILLS_DIR = '.skills';
 const SHELL_TIMEOUT_MS = 10000;
-const ALLOWED_SHELL_COMMANDS = ['curl', 'cat', 'ls', 'head', 'tail', 'find', 'tree', 'jq', 'grep', 'export', 'source'];
+const ALLOWED_SHELL_COMMANDS = ['curl', 'cat', 'ls', 'head', 'tail', 'find', 'tree', 'jq', 'grep', 'export', 'source', 'python', 'python3', 'pip', 'pip3'];
 const MAX_OUTPUT_LENGTH = 5000;
 
 export type CommandHandler = (args: string) => string | Promise<string>;
@@ -65,37 +61,40 @@ export async function executeCommand(command: string): Promise<string> {
 }
 
 export function createSkillCommands(): Record<string, CommandHandler> {
+  const storage = getStorage();
+
   return {
     'skill help': () => `Available commands:
-  skill list              - List all skills
-  skill search <keyword>  - Search skills by keyword
-  skill get <name>        - Read a skill
-  skill set <name> "..."  - Write a skill`,
+  skill list                              - List all skills
+  skill search <keyword>                  - Search skills by keyword
+  skill get <name>                        - Read a skill (includes file list)
+  skill set <name> "..."                  - Write a skill
+  skill add-file <name> <filename> "..."  - Add a file to a skill directory`,
 
     'skill list': async () => {
-      const skills = await scanSkills();
+      const skills = await storage.list();
       if (skills.length === 0) return '(no skills found)';
       return skills.map(s => `- ${s.name}: ${s.description}`).join('\n');
     },
 
     'skill search': async (keyword) => {
       if (!keyword.trim()) return 'Usage: skill search <keyword>';
-      const skills = await scanSkills();
-      if (skills.length === 0) return `No skills matching "${keyword}"`;
-      const fuse = new Fuse(skills, { keys: ['name', 'description'], threshold: 0.4 });
-      const results = fuse.search(keyword);
+      const results = await storage.search(keyword);
       if (results.length === 0) return `No skills matching "${keyword}"`;
-      return results.map(r => `- ${r.item.name}: ${r.item.description}`).join('\n');
+      return results.map(s => `- ${s.name}: ${s.description}`).join('\n');
     },
 
     'skill get': async (name) => {
       if (!name.trim()) return 'Usage: skill get <name>';
-      const skillPath = path.join(SKILLS_DIR, name.trim(), 'SKILL.md');
-      try {
-        return await fs.readFile(skillPath, 'utf-8');
-      } catch {
-        return `Skill "${name}" not found`;
+      const skill = await storage.get(name.trim());
+      if (!skill) return `Skill "${name}" not found`;
+
+      let output = skill.content;
+      if (skill.files.length > 0) {
+        output += '\n\n---\n## Skill Files\n';
+        output += skill.files.map(f => `- ${name}/${f}`).join('\n');
       }
+      return output;
     },
 
     'skill set': async (args) => {
@@ -104,31 +103,26 @@ export function createSkillCommands(): Record<string, CommandHandler> {
       if (!match) return 'Usage: skill set <name> "<content>"';
 
       const [, name, content] = match;
-      const skillDir = path.join(SKILLS_DIR, name);
-      await fs.mkdir(skillDir, { recursive: true });
-      await fs.writeFile(path.join(skillDir, 'SKILL.md'), content);
-      return `Skill "${name}" saved to ${skillDir}/SKILL.md`;
+      await storage.set(name, content);
+      return `Skill "${name}" saved`;
+    },
+
+    'skill add-file': async (args) => {
+      // Parse: skill add-file <skill-name> <filename> "<content>"
+      const match = args.match(/^(\S+)\s+(\S+)\s+"([\s\S]+)"$/);
+      if (!match) return 'Usage: skill add-file <skill-name> <filename> "<content>"';
+
+      const [, skillName, filename, content] = match;
+
+      try {
+        await storage.addFile(skillName, filename, content);
+        return `File "${filename}" added to skill "${skillName}"`;
+      } catch (error) {
+        if (error instanceof Error) {
+          return `Error: ${error.message}`;
+        }
+        return 'Error: Failed to add file';
+      }
     },
   };
-}
-
-async function scanSkills(): Promise<Array<{ name: string; description: string }>> {
-  try {
-    const dirs = await fs.readdir(SKILLS_DIR);
-    const skills = [];
-
-    for (const dir of dirs) {
-      try {
-        const content = await fs.readFile(path.join(SKILLS_DIR, dir, 'SKILL.md'), 'utf-8');
-        const { data } = matter(content);
-        if (data.name && data.description) {
-          skills.push({ name: data.name, description: data.description });
-        }
-      } catch { /* skip */ }
-    }
-
-    return skills;
-  } catch {
-    return [];
-  }
 }

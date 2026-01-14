@@ -23,11 +23,6 @@ export function useConversations() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load conversations on mount
-  useEffect(() => {
-    fetchConversations();
-  }, []);
-
   const fetchConversations = useCallback(async () => {
     try {
       const response = await fetch('/api/conversations');
@@ -41,6 +36,11 @@ export function useConversations() {
       setIsLoading(false);
     }
   }, []);
+
+  // Load conversations on mount
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
 
   const createConversation = useCallback(async (title: string = 'New conversation'): Promise<Conversation> => {
     const response = await fetch('/api/conversations', {
