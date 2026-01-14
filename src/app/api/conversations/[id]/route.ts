@@ -28,7 +28,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/conversations/[id] - Update a conversation (e.g., rename)
+// PATCH /api/conversations/[id] - Update a conversation (e.g., rename, mode)
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -38,7 +38,7 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    await updateConversation(id, { title: body.title });
+    await updateConversation(id, { title: body.title, mode: body.mode });
 
     return NextResponse.json({ success: true });
   } catch (error) {

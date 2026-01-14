@@ -8,6 +8,7 @@ export interface Conversation {
   title: string;
   created_at: number;
   updated_at: number;
+  mode: 'task' | 'codify-skill';
 }
 
 export interface GroupedConversations {
@@ -42,11 +43,11 @@ export function useConversations() {
     fetchConversations();
   }, [fetchConversations]);
 
-  const createConversation = useCallback(async (title: string = 'New conversation'): Promise<Conversation> => {
+  const createConversation = useCallback(async (title: string = 'New conversation', mode: 'task' | 'codify-skill' = 'task'): Promise<Conversation> => {
     const response = await fetch('/api/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title }),
+      body: JSON.stringify({ title, mode }),
     });
 
     if (!response.ok) {
@@ -122,6 +123,28 @@ export function useConversations() {
       );
     } catch (error) {
       console.error('Failed to rename conversation:', error);
+    }
+  }, []);
+
+  const updateMode = useCallback(async (id: string, mode: 'task' | 'codify-skill') => {
+    try {
+      const response = await fetch(`/api/conversations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update conversation mode');
+      }
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === id ? { ...c, mode, updated_at: Date.now() } : c
+        )
+      );
+    } catch (error) {
+      console.error('Failed to update conversation mode:', error);
     }
   }, []);
 
@@ -203,6 +226,7 @@ export function useConversations() {
     switchConversation,
     deleteConversation,
     renameConversation,
+    updateMode,
     saveMessage,
     refreshConversations: fetchConversations,
   };

@@ -35,8 +35,12 @@ export default function ForgeDemo() {
     switchConversation,
     deleteConversation,
     renameConversation,
+    updateMode,
     saveMessage,
   } = useConversations();
+
+  // Track current agent mode for the conversation
+  const [currentMode, setCurrentMode] = useState<'task' | 'codify-skill'>('task');
 
   // Messages for current conversation (loaded from DB or empty for new)
   const [loadedMessages, setLoadedMessages] = useState<Message[]>([]);
@@ -102,6 +106,7 @@ export default function ForgeDemo() {
       messageCountRef.current = result.messages.length;
       currentIdRef.current = id;
       setCurrentId(id);
+      setCurrentMode(result.conversation.mode || 'task');
       router.push(`/?id=${id}`, { scroll: false });
     }
     isSwitchingRef.current = false;
@@ -123,6 +128,7 @@ export default function ForgeDemo() {
       setLoadedMessages([]);
       messageCountRef.current = 0;
       clearMessages();
+      setCurrentMode('task');
       inputRef.current?.focus();
       return;
     }
@@ -135,6 +141,7 @@ export default function ForgeDemo() {
     clearMessages();
     currentIdRef.current = conv.id;
     setCurrentId(conv.id);
+    setCurrentMode('task');
     router.push(`/?id=${conv.id}`, { scroll: false });
     inputRef.current?.focus();
     isSwitchingRef.current = false;
@@ -168,6 +175,7 @@ export default function ForgeDemo() {
         messageCountRef.current = 0;
         clearMessages();
         setCurrentId(null);
+        setCurrentMode('task');
         router.push('/', { scroll: false });
       }
     }
@@ -201,7 +209,7 @@ export default function ForgeDemo() {
 
     const message = input;
     setInput('');
-    await sendMessage(message);
+    await sendMessage(message, currentMode);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -222,6 +230,12 @@ export default function ForgeDemo() {
 
     setCodifyingMessageId(messageId);
 
+    // Set mode to codify-skill and persist to DB
+    setCurrentMode('codify-skill');
+    if (currentId) {
+      await updateMode(currentId, 'codify-skill');
+    }
+
     // Send a message to trigger skill codification agent
     const codifyPrompt = suggestion.skillToUpdate
       ? `Update the existing skill "${suggestion.skillToUpdate}" based on the conversation above. What was learned/corrected: "${suggestion.learned}"`
@@ -229,7 +243,7 @@ export default function ForgeDemo() {
     await sendMessage(codifyPrompt, 'codify-skill');
 
     setCodifyingMessageId(null);
-  }, [isStreaming, codifyingMessageId, sendMessage]);
+  }, [isStreaming, codifyingMessageId, sendMessage, currentId, updateMode]);
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">

@@ -1,6 +1,12 @@
 # Changelog
 
-Last Updated: 2026-01-11
+Last Updated: 2026-01-13
+
+## 2026-01-13: Persist Agent Mode Across Conversation
+
+- Added `mode` column to conversations table with migration for existing DBs
+- Mode persists when clicking "Codify Skill" and restores when switching conversations
+- Follow-up messages now use persisted mode instead of defaulting to 'task'
 
 ## 2026-01-11: Cloud Skill Storage + Lint Fixes
 

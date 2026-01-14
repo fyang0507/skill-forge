@@ -22,7 +22,8 @@ export async function POST(request: Request) {
     await initDb();
     const body = await request.json();
     const title = body.title || 'New conversation';
-    const conversation = await createConversation(title);
+    const mode = body.mode || 'task';
+    const conversation = await createConversation(title, mode);
     return NextResponse.json(conversation);
   } catch (error) {
     console.error('Failed to create conversation:', error);

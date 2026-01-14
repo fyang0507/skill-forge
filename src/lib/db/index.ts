@@ -29,6 +29,7 @@ export interface Conversation {
   title: string;
   created_at: number;
   updated_at: number;
+  mode: 'task' | 'codify-skill';
 }
 
 // Initialize database schema
@@ -40,9 +41,17 @@ export async function initDb(): Promise<void> {
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
+      updated_at INTEGER NOT NULL,
+      mode TEXT DEFAULT 'task'
     )
   `);
+
+  // Migration: add mode column to existing tables
+  try {
+    await client.execute(`ALTER TABLE conversations ADD COLUMN mode TEXT DEFAULT 'task'`);
+  } catch {
+    // Column already exists, ignore
+  }
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS messages (
@@ -88,24 +97,24 @@ function generateId(): string {
 }
 
 // Create a new conversation
-export async function createConversation(title: string): Promise<Conversation> {
+export async function createConversation(title: string, mode: 'task' | 'codify-skill' = 'task'): Promise<Conversation> {
   const client = getDb();
   const id = generateId();
   const now = Date.now();
 
   await client.execute({
-    sql: `INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
-    args: [id, title, now, now],
+    sql: `INSERT INTO conversations (id, title, created_at, updated_at, mode) VALUES (?, ?, ?, ?, ?)`,
+    args: [id, title, now, now, mode],
   });
 
-  return { id, title, created_at: now, updated_at: now };
+  return { id, title, created_at: now, updated_at: now, mode };
 }
 
 // Get all conversations
 export async function getConversations(): Promise<Conversation[]> {
   const client = getDb();
   const result = await client.execute(`
-    SELECT id, title, created_at, updated_at
+    SELECT id, title, created_at, updated_at, mode
     FROM conversations
     ORDER BY updated_at DESC
   `);
@@ -115,6 +124,7 @@ export async function getConversations(): Promise<Conversation[]> {
     title: row.title as string,
     created_at: row.created_at as number,
     updated_at: row.updated_at as number,
+    mode: (row.mode as 'task' | 'codify-skill') || 'task',
   }));
 }
 
@@ -123,7 +133,7 @@ export async function getConversation(id: string): Promise<{ conversation: Conve
   const client = getDb();
 
   const convResult = await client.execute({
-    sql: `SELECT id, title, created_at, updated_at FROM conversations WHERE id = ?`,
+    sql: `SELECT id, title, created_at, updated_at, mode FROM conversations WHERE id = ?`,
     args: [id],
   });
 
@@ -137,6 +147,7 @@ export async function getConversation(id: string): Promise<{ conversation: Conve
     title: row.title as string,
     created_at: row.created_at as number,
     updated_at: row.updated_at as number,
+    mode: (row.mode as 'task' | 'codify-skill') || 'task',
   };
 
   const msgResult = await client.execute({
@@ -161,7 +172,7 @@ export async function getConversation(id: string): Promise<{ conversation: Conve
 }
 
 // Update a conversation
-export async function updateConversation(id: string, data: { title?: string }): Promise<void> {
+export async function updateConversation(id: string, data: { title?: string; mode?: 'task' | 'codify-skill' }): Promise<void> {
   const client = getDb();
   const now = Date.now();
 
@@ -169,6 +180,13 @@ export async function updateConversation(id: string, data: { title?: string }): 
     await client.execute({
       sql: `UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?`,
       args: [data.title, now, id],
+    });
+  }
+
+  if (data.mode !== undefined) {
+    await client.execute({
+      sql: `UPDATE conversations SET mode = ?, updated_at = ? WHERE id = ?`,
+      args: [data.mode, now, id],
     });
   }
 }
