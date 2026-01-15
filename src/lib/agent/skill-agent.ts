@@ -55,6 +55,12 @@ description: One-line description
 
 If not worth saving, explain briefly why.
 
+# Completion
+Shell output returns as a user message. After receiving it:
+- **Done** (skill saved): respond only "COMPLETE"
+- **More steps** (e.g., after reading skill): continue
+- **Error**: fix and retry
+
 # Guidelines
 - Name skills generically (e.g., "notion-api-auth" not "fix-johns-notion-error")
 - Focus on the procedure, not the specific data used
