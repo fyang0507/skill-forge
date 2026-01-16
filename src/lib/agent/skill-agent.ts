@@ -55,6 +55,16 @@ description: One-line description
 
 If not worth saving, explain briefly why.
 
+# Code Extraction
+
+When codifying a skill that involved code execution (scripts in sandbox):
+1. List sandbox files: <shell>ls</shell>
+2. Review code for reusability (remove hardcoded values, add comments if needed)
+3. Add reusable code to skill: <shell>skill add-file script.py skill-name</shell>
+4. Document in SKILL.md: reference the file, explain parameters, list required env vars
+
+This persists working code so future runs can reuse it via \`skill copy-to-sandbox\`.
+
 # Completion
 Shell output returns as a user message. After receiving it:
 - **Done** (skill saved): respond only "COMPLETE"

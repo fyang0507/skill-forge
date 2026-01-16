@@ -2,6 +2,15 @@
 
 Last Updated: 2026-01-15
 
+## 2026-01-15: Transparent Sandbox + Shell Redirection Fix
+
+- **New architecture**: Split command execution into `command-executor.ts` (router) + `shell-executor.ts` (shell) + `skill-commands.ts` (skills-only)
+- **Removed** explicit `sandbox *` commands - agent now uses native shell (`ls`, `cat`, etc.) transparently
+- **Renamed** `sandbox add-to-skill` → `skill add-file` for consistency
+- **Simplified** `SandboxExecutor.execute()` to `(command, options?)` - validates first word, passes full string
+- **Updated agent instructions**: task-agent gets execution workspace docs, skill-agent gets code extraction workflow
+- Shell operators (`|`, `&&`, `>`, `>>`) now work correctly on both local and Vercel environments
+
 ## 2026-01-15: Unified Sandbox Executor Interface
 
 - Created `SandboxExecutor` abstraction layer with `LocalSandboxExecutor` (child_process + fs) and `VercelSandboxExecutor` (@vercel/sandbox SDK)

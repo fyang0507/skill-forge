@@ -21,7 +21,7 @@ export interface ExecuteOptions {
 
 export interface SandboxExecutor {
   /** Execute a command in the sandbox */
-  execute(command: string, args?: string[], options?: ExecuteOptions): Promise<CommandResult>;
+  execute(command: string, options?: ExecuteOptions): Promise<CommandResult>;
 
   /** Write a file to the sandbox */
   writeFile(path: string, content: string | Buffer): Promise<void>;

@@ -19,13 +19,13 @@ describe('LocalSandboxExecutor', () => {
 
   describe('execute', () => {
     it('should execute allowed commands', async () => {
-      const result = await executor.execute('echo', ['hello', 'world']);
+      const result = await executor.execute('echo hello world');
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toBe('hello world');
     });
 
     it('should reject disallowed commands', async () => {
-      const result = await executor.execute('wget', ['http://example.com']);
+      const result = await executor.execute('wget http://example.com');
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('not allowed');
     });
@@ -37,16 +37,13 @@ describe('LocalSandboxExecutor', () => {
     });
 
     it('should return stdout, stderr, and exitCode', async () => {
-      const result = await executor.execute('ls', ['-la', '/nonexistent']);
+      const result = await executor.execute('ls -la /nonexistent');
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toBeTruthy();
     });
 
     it('should handle command timeout', async () => {
-      // Use sleep command which is simpler to invoke and test timeout behavior
-      const result = await executor.execute('sleep', ['5'], {
-        timeout: 100,
-      });
+      const result = await executor.execute('sleep 5', { timeout: 100 });
       // Exit code varies by platform (124 on Linux, other codes on macOS)
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain('timed out');

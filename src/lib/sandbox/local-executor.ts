@@ -10,6 +10,7 @@ const DEFAULT_TIMEOUT_MS = 10000;
 const MAX_BUFFER = 1024 * 1024; // 1MB
 
 const ALLOWED_COMMANDS = [
+  'sh',
   'curl',
   'cat',
   'ls',
@@ -44,11 +45,7 @@ export class LocalSandboxExecutor implements SandboxExecutor {
     this.sandboxDir = sandboxDir;
   }
 
-  async execute(
-    command: string,
-    args: string[] = [],
-    options?: ExecuteOptions
-  ): Promise<CommandResult> {
+  async execute(command: string, options?: ExecuteOptions): Promise<CommandResult> {
     const [cmd] = command.trim().split(/\s+/);
 
     if (!ALLOWED_COMMANDS.includes(cmd)) {
@@ -59,14 +56,13 @@ export class LocalSandboxExecutor implements SandboxExecutor {
       };
     }
 
-    const fullCommand = args.length > 0 ? `${command} ${args.join(' ')}` : command;
     const timeout = options?.timeout ?? DEFAULT_TIMEOUT_MS;
 
     try {
-      const { stdout, stderr } = await execAsync(fullCommand, {
+      const { stdout, stderr } = await execAsync(command, {
         timeout,
         maxBuffer: MAX_BUFFER,
-        cwd: options?.cwd,
+        cwd: options?.cwd ?? this.sandboxDir,
         env: options?.env ? { ...process.env, ...options.env } : undefined,
       });
 

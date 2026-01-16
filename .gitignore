@@ -43,5 +43,8 @@ next-env.d.ts
 # skill folder
 .skills/
 
+# sandbox execution workspace
+.sandbox/
+
 # data folder
 data/

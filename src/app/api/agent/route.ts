@@ -1,7 +1,7 @@
 import { taskAgent } from '@/lib/agent/task-agent';
 import { skillAgent } from '@/lib/agent/skill-agent';
 import { extractCommands, formatToolResults } from '@/lib/tools/command-parser';
-import { executeCommand } from '@/lib/tools/skill-commands';
+import { executeCommand } from '@/lib/tools/command-executor';
 import { toModelMessages, type APIMessage } from '@/lib/messages/transform';
 
 const MAX_ITERATIONS = 10;

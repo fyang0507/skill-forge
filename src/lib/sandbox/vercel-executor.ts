@@ -24,16 +24,24 @@ export class VercelSandboxExecutor implements SandboxExecutor {
     return this.sandbox;
   }
 
-  async execute(
-    command: string,
-    args: string[] = [],
-    options?: ExecuteOptions
-  ): Promise<CommandResult> {
+  async execute(command: string, options?: ExecuteOptions): Promise<CommandResult> {
     const sandbox = await this.ensureSandbox();
 
-    // No command allowlist for Vercel - the microVM is already isolated
+    // Parse command string - use sh -c for shell operators, otherwise split
+    const hasShellOperators = /[|><&;`$]|\|\||&&/.test(command);
+    let cmd: string;
+    let args: string[];
+
+    if (hasShellOperators) {
+      cmd = 'sh';
+      args = ['-c', command];
+    } else {
+      const parts = command.trim().split(/\s+/);
+      [cmd, ...args] = parts;
+    }
+
     const result = await sandbox.runCommand({
-      cmd: command,
+      cmd,
       args,
       cwd: options?.cwd ?? this.workDir,
       env: options?.env,

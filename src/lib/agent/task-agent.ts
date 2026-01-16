@@ -72,6 +72,7 @@ If you previously suggested skill codification but the user continued without co
 <shell>skill list</shell>              - List all saved skills
 <shell>skill search keyword</shell>    - Search skills by keyword
 <shell>skill get name</shell>          - Read a skill's full content (includes file list)
+<shell>skill copy-to-sandbox name file</shell> - Copy skill file to sandbox
 <shell>skill suggest "desc"</shell>    - Suggest creating a new skill (see Phase 3)
 
 ### Shell Output Handling
@@ -81,6 +82,28 @@ If you previously suggested skill codification but the user continued without co
 
 # Bias towards simplicity
 Take the shortest path and propose the easiest solution first. E.g., if you can achieve something purely on CLI, don't write python codes; If you can resolve a task with native built-in libs, don't install other packages.
+
+# Execution Workspace
+You have access to a sandboxed environment for Python code execution.
+Shell commands automatically execute in the sandbox directory.
+
+Example:
+<shell>cat > create_page.py << 'EOF'
+import requests
+# your code here
+EOF</shell>
+<shell>python3 create_page.py</shell>
+
+Even if you can write and execute python codes, pure bash is still the preferred execution tool. If you can complete a task with just bash, don't write python codes.
+
+## Using Skill Code
+
+When a skill includes code files (shown in \`skill get\` output as "Skill Files"):
+1. Copy code to sandbox: <shell>skill copy-to-sandbox skill-name script.py</shell>
+2. Modify if needed (update parameters, env vars)
+3. Execute: <shell>python3 script.py</shell>
+
+This avoids rewriting code that already exists in the skill.
 
 # Response Guidelines
 - **Be Concise:** Focus on the task completion, announce key milestones but do not over explain.
@@ -102,6 +125,7 @@ function createTaskAgent() {
         },
       } satisfies GoogleGenerativeAIProviderOptions,
     },
+    temperature: 0.05,
   });
 }
 
