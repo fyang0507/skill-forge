@@ -1,6 +1,12 @@
 # Changelog
 
-Last Updated: 2026-01-14
+Last Updated: 2026-01-15
+
+## 2026-01-15: Unified Sandbox Executor Interface
+
+- Created `SandboxExecutor` abstraction layer with `LocalSandboxExecutor` (child_process + fs) and `VercelSandboxExecutor` (@vercel/sandbox SDK)
+- Refactored `skill-commands.ts` to use the new interface, enabling environment-agnostic sandbox operations
+- Added `@vercel/sandbox@^1.2.0` dependency for isolated microVM execution in production
 
 ## 2026-01-14: Skill Agent Transcript Tool
 

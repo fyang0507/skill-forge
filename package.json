@@ -17,6 +17,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@vercel/blob": "^2.0.0",
     "@vercel/otel": "^2.1.0",
+    "@vercel/sandbox": "^1.2.0",
     "ai": "^6.0.33",
     "braintrust": "^1.1.1",
     "fuse.js": "^7.1.0",
