@@ -1,58 +1,118 @@
 import type { Sandbox } from '@vercel/sandbox';
 import type { SandboxExecutor, CommandResult, ExecuteOptions } from './executor';
+import { SandboxTimeoutError } from './executor';
 
-const DEFAULT_TIMEOUT_MS = 300000; // 5 minutes for Vercel sandbox
+const IDLE_TIMEOUT_MS = 300000; // 5 minutes idle timeout
 const WORK_DIR = '/vercel/sandbox';
 
 export class VercelSandboxExecutor implements SandboxExecutor {
   private sandbox: Sandbox | null = null;
   private workDir: string;
+  private isDead: boolean = false;
+  private lastActivityTime: number = Date.now();
 
   constructor(workDir: string = WORK_DIR) {
     this.workDir = workDir;
   }
 
+  /**
+   * Check if an error indicates the sandbox has timed out or stopped.
+   */
+  private isSandboxDeadError(error: unknown): boolean {
+    if (error instanceof Error) {
+      const msg = error.message.toLowerCase();
+      // Common patterns for sandbox timeout/death
+      if (
+        msg.includes('sandbox') &&
+        (msg.includes('stopped') || msg.includes('not found') || msg.includes('timeout'))
+      ) {
+        return true;
+      }
+      // StreamError thrown when sandbox stops during streaming
+      if (error.name === 'StreamError') {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private async ensureSandbox(): Promise<Sandbox> {
+    if (this.isDead) {
+      throw new SandboxTimeoutError();
+    }
     if (!this.sandbox) {
       // Dynamic import to avoid loading @vercel/sandbox in local environment
       const { Sandbox } = await import('@vercel/sandbox');
       this.sandbox = await Sandbox.create({
         runtime: 'python3.13',
-        timeout: DEFAULT_TIMEOUT_MS,
+        timeout: IDLE_TIMEOUT_MS,
       });
+      this.lastActivityTime = Date.now();
     }
     return this.sandbox;
   }
 
-  async execute(command: string, options?: ExecuteOptions): Promise<CommandResult> {
-    const sandbox = await this.ensureSandbox();
-
-    // Parse command string - use sh -c for shell operators, otherwise split
-    const hasShellOperators = /[|><&;`$]|\|\||&&/.test(command);
-    let cmd: string;
-    let args: string[];
-
-    if (hasShellOperators) {
-      cmd = 'sh';
-      args = ['-c', command];
-    } else {
-      const parts = command.trim().split(/\s+/);
-      [cmd, ...args] = parts;
+  isAlive(): boolean {
+    if (this.isDead) return false;
+    const elapsed = Date.now() - this.lastActivityTime;
+    if (elapsed > IDLE_TIMEOUT_MS) {
+      this.isDead = true;
+      return false;
     }
+    return true;
+  }
 
-    const result = await sandbox.runCommand({
-      cmd,
-      args,
-      cwd: options?.cwd ?? this.workDir,
-      env: options?.env,
-      sudo: options?.sudo,
-    });
+  async resetTimeout(): Promise<boolean> {
+    if (!this.isAlive()) {
+      return false;
+    }
+    this.lastActivityTime = Date.now();
+    return true;
+  }
 
-    return {
-      stdout: await result.stdout(),
-      stderr: await result.stderr(),
-      exitCode: result.exitCode,
-    };
+  async execute(command: string, options?: ExecuteOptions): Promise<CommandResult> {
+    // Check idle timeout before executing
+    if (!this.isAlive()) {
+      throw new SandboxTimeoutError();
+    }
+    this.lastActivityTime = Date.now();
+
+    try {
+      const sandbox = await this.ensureSandbox();
+
+      // Parse command string - use sh -c for shell operators, otherwise split
+      const hasShellOperators = /[|><&;`$]|\|\||&&/.test(command);
+      let cmd: string;
+      let args: string[];
+
+      if (hasShellOperators) {
+        cmd = 'sh';
+        args = ['-c', command];
+      } else {
+        const parts = command.trim().split(/\s+/);
+        [cmd, ...args] = parts;
+      }
+
+      const result = await sandbox.runCommand({
+        cmd,
+        args,
+        cwd: options?.cwd ?? this.workDir,
+        env: options?.env,
+        sudo: options?.sudo,
+      });
+
+      return {
+        stdout: await result.stdout(),
+        stderr: await result.stderr(),
+        exitCode: result.exitCode,
+      };
+    } catch (error) {
+      if (this.isSandboxDeadError(error)) {
+        this.isDead = true;
+        throw new SandboxTimeoutError();
+      }
+      throw error;
+    }
   }
 
   async writeFile(filePath: string, content: string | Buffer): Promise<void> {
@@ -112,5 +172,6 @@ export class VercelSandboxExecutor implements SandboxExecutor {
       await this.sandbox.stop();
       this.sandbox = null;
     }
+    this.isDead = true;
   }
 }

@@ -2,6 +2,13 @@
 
 Last Updated: 2026-01-15
 
+## 2026-01-15: Sandbox Idle Timeout + Frontend Notification
+
+- **Idle timeout**: Sandbox auto-terminates after 5 minutes of inactivity (tracked via `lastActivityTime`)
+- **New SSE event**: `sandbox_timeout` sent when timeout occurs, frontend shows dismissible amber banner
+- **SandboxTimeoutError**: New error class thrown by executors when sandbox is dead
+- **Interface extension**: Added `resetTimeout()` and `isAlive()` to `SandboxExecutor` interface
+
 ## 2026-01-15: Transparent Sandbox + Shell Redirection Fix
 
 - **New architecture**: Split command execution into `command-executor.ts` (router) + `shell-executor.ts` (shell) + `skill-commands.ts` (skills-only)

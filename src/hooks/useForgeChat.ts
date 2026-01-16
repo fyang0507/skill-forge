@@ -50,7 +50,7 @@ export interface Message {
 export type ChatStatus = 'ready' | 'streaming' | 'error';
 
 interface SSEEvent {
-  type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output';
+  type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output' | 'sandbox_timeout';
   content?: string;
   command?: string;
   result?: string;
@@ -95,6 +95,7 @@ export function useForgeChat(options?: UseForgeChatOptions) {
   const [messages, setMessages] = useState<Message[]>(options?.initialMessages ?? []);
   const [status, setStatus] = useState<ChatStatus>('ready');
   const [error, setError] = useState<string | null>(null);
+  const [sandboxTimeoutMessage, setSandboxTimeoutMessage] = useState<string | null>(null);
   const [cumulativeStats, setCumulativeStats] = useState<CumulativeStats>({
     totalPromptTokens: 0,
     totalCompletionTokens: 0,
@@ -501,6 +502,10 @@ export function useForgeChat(options?: UseForgeChatOptions) {
                 break;
               }
 
+              case 'sandbox_timeout':
+                setSandboxTimeoutMessage(event.content || 'Sandbox timed out due to inactivity.');
+                break;
+
               case 'error':
                 setError(event.content || 'Unknown error');
                 setStatus('error');
@@ -547,6 +552,10 @@ export function useForgeChat(options?: UseForgeChatOptions) {
     }
   }, []);
 
+  const clearSandboxTimeout = useCallback(() => {
+    setSandboxTimeoutMessage(null);
+  }, []);
+
   return {
     messages,
     setMessages,
@@ -556,5 +565,7 @@ export function useForgeChat(options?: UseForgeChatOptions) {
     sendMessage,
     clearMessages,
     stop,
+    sandboxTimeoutMessage,
+    clearSandboxTimeout,
   };
 }

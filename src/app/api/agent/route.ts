@@ -3,14 +3,14 @@ import { skillAgent } from '@/lib/agent/skill-agent';
 import { extractCommands, formatToolResults } from '@/lib/tools/command-parser';
 import { executeCommand } from '@/lib/tools/command-executor';
 import { toModelMessages, type APIMessage } from '@/lib/messages/transform';
-import { clearSandboxExecutor } from '@/lib/sandbox/executor';
+import { clearSandboxExecutor, SandboxTimeoutError } from '@/lib/sandbox/executor';
 
 const MAX_ITERATIONS = 10;
 
 type AgentMode = 'task' | 'codify-skill';
 
 interface SSEEvent {
-  type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output';
+  type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output' | 'sandbox_timeout';
   content?: string;
   command?: string;
   result?: string;
@@ -242,6 +242,7 @@ export async function POST(req: Request) {
         // Note: tool-call events were already sent during streaming
         const executions: Array<{ command: string; result: string }> = [];
 
+        let sandboxTimedOut = false;
         for (const command of commands) {
           // Check for abort before executing each command
           if (aborted) {
@@ -260,9 +261,29 @@ export async function POST(req: Request) {
             sandboxUsed = true;
           }
 
-          const result = await executeCommand(command);
-          executions.push({ command, result });
-          send({ type: 'tool-result', command, result });
+          try {
+            const result = await executeCommand(command);
+            executions.push({ command, result });
+            send({ type: 'tool-result', command, result });
+          } catch (error) {
+            if (error instanceof SandboxTimeoutError) {
+              send({
+                type: 'sandbox_timeout',
+                content: 'Sandbox timed out due to inactivity. All non-conversational data has been cleared.',
+              });
+              await clearSandboxExecutor();
+              sandboxUsed = false;
+              sandboxTimedOut = true;
+              break;
+            }
+            throw error;
+          }
+        }
+
+        // Exit agent loop if sandbox timed out
+        if (sandboxTimedOut) {
+          send({ type: 'done' });
+          break;
         }
 
         // Exit loop if aborted during command execution

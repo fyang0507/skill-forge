@@ -6,6 +6,13 @@
  * - VercelSandboxExecutor: Uses @vercel/sandbox SDK for isolated microVM (production)
  */
 
+export class SandboxTimeoutError extends Error {
+  constructor(message = 'Sandbox timed out due to inactivity') {
+    super(message);
+    this.name = 'SandboxTimeoutError';
+  }
+}
+
 export interface CommandResult {
   stdout: string;
   stderr: string;
@@ -34,6 +41,12 @@ export interface SandboxExecutor {
 
   /** Clean up sandbox resources */
   cleanup(): Promise<void>;
+
+  /** Reset the sandbox timeout to the default duration. Returns false if sandbox is dead. */
+  resetTimeout(): Promise<boolean>;
+
+  /** Check if sandbox is still alive */
+  isAlive(): boolean;
 }
 
 let cachedExecutor: SandboxExecutor | null = null;

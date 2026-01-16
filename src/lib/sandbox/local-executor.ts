@@ -3,11 +3,13 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import type { SandboxExecutor, CommandResult, ExecuteOptions } from './executor';
+import { SandboxTimeoutError } from './executor';
 
 const execAsync = promisify(exec);
 
 const DEFAULT_TIMEOUT_MS = 10000;
 const MAX_BUFFER = 1024 * 1024; // 1MB
+const IDLE_TIMEOUT_MS = 300000; // 5 minutes idle timeout (same as Vercel)
 
 const ALLOWED_COMMANDS = [
   'sh',
@@ -40,12 +42,37 @@ const ALLOWED_COMMANDS = [
 
 export class LocalSandboxExecutor implements SandboxExecutor {
   private sandboxDir: string;
+  private lastActivityTime: number = Date.now();
+  private isDead: boolean = false;
 
   constructor(sandboxDir: string = '.sandbox') {
     this.sandboxDir = sandboxDir;
   }
 
+  isAlive(): boolean {
+    if (this.isDead) return false;
+    const elapsed = Date.now() - this.lastActivityTime;
+    if (elapsed > IDLE_TIMEOUT_MS) {
+      this.isDead = true;
+      return false;
+    }
+    return true;
+  }
+
+  async resetTimeout(): Promise<boolean> {
+    if (!this.isAlive()) {
+      return false;
+    }
+    this.lastActivityTime = Date.now();
+    return true;
+  }
+
   async execute(command: string, options?: ExecuteOptions): Promise<CommandResult> {
+    // Check if sandbox is still alive and reset timeout
+    if (!this.isAlive()) {
+      throw new SandboxTimeoutError();
+    }
+    this.lastActivityTime = Date.now();
     const [cmd] = command.trim().split(/\s+/);
 
     if (!ALLOWED_COMMANDS.includes(cmd)) {
@@ -133,5 +160,6 @@ export class LocalSandboxExecutor implements SandboxExecutor {
   async cleanup(): Promise<void> {
     await fs.rm(this.sandboxDir, { recursive: true, force: true });
     await fs.mkdir(this.sandboxDir, { recursive: true });
+    this.isDead = true;
   }
 }

@@ -7,6 +7,7 @@ import { useConversations } from '@/hooks/useConversations';
 import ChatMessage, { SkillSuggestion } from './ChatMessage';
 import { CumulativeStatsBar } from './CumulativeStats';
 import { Sidebar } from './Sidebar';
+import { SandboxTimeoutBanner } from './SandboxTimeoutBanner';
 import { useSkills } from '@/hooks/useSkills';
 
 const EXAMPLE_PROMPTS = [
@@ -148,7 +149,7 @@ export default function ForgeDemo() {
     },
   }), [loadedMessages, saveMessage, renameConversation]);
 
-  const { messages, status, error, cumulativeStats, sendMessage, clearMessages, stop } = useForgeChat(forgeChatOptions);
+  const { messages, status, error, cumulativeStats, sendMessage, clearMessages, stop, sandboxTimeoutMessage, clearSandboxTimeout } = useForgeChat(forgeChatOptions);
 
   const isStreaming = status === 'streaming';
 
@@ -339,6 +340,14 @@ export default function ForgeDemo() {
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">
+      {/* Sandbox timeout notification */}
+      {sandboxTimeoutMessage && (
+        <SandboxTimeoutBanner
+          message={sandboxTimeoutMessage}
+          onDismiss={clearSandboxTimeout}
+        />
+      )}
+
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
