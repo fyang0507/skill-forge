@@ -2,6 +2,12 @@
 
 Last Updated: 2026-01-15
 
+## 2026-01-15: Agent Prompt Improvements - Skills vs Sandbox Clarity
+
+- **Fixed skill agent shell syntax**: Added explicit "Shell Commands (Literal Text)" section - agent was calling `execute_shell_command` as a function instead of outputting `<shell>` literal text
+- **Added Skills vs Sandbox documentation**: Both agents now explain the separation (skills = persistent library, sandbox = ephemeral execution workspace) and that skill files must be copied to sandbox before execution
+- **Code generalization guidance**: Skill agent now instructed to parameterize hardcoded values (URLs, IDs, tokens → env vars) before saving, not just copy verbatim
+
 ## 2026-01-15: Sandbox Idle Timeout + Frontend Notification
 
 - **Idle timeout**: Sandbox auto-terminates after 5 minutes of inactivity (tracked via `lastActivityTime`)
