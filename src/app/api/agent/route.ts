@@ -3,6 +3,7 @@ import { skillAgent } from '@/lib/agent/skill-agent';
 import { extractCommands, formatToolResults } from '@/lib/tools/command-parser';
 import { executeCommand } from '@/lib/tools/command-executor';
 import { toModelMessages, type APIMessage } from '@/lib/messages/transform';
+import { clearSandboxExecutor } from '@/lib/sandbox/executor';
 
 const MAX_ITERATIONS = 10;
 
@@ -84,6 +85,15 @@ export async function POST(req: Request) {
 
   const { stream, send, close } = createSSEStream();
 
+  // Track abort state for sandbox cleanup
+  let aborted = false;
+  let sandboxUsed = false;
+
+  // Listen for client abort (when user stops the agent)
+  req.signal.addEventListener('abort', () => {
+    aborted = true;
+  });
+
   // Run the agent loop in the background
   (async () => {
     try {
@@ -107,6 +117,12 @@ export async function POST(req: Request) {
       let iteration = 0;
 
       while (iteration < MAX_ITERATIONS) {
+        // Check for abort before starting new iteration
+        if (aborted) {
+          send({ type: 'done' });
+          break;
+        }
+
         iteration++;
         const iterationStartTime = Date.now();
 
@@ -227,15 +243,32 @@ export async function POST(req: Request) {
         const executions: Array<{ command: string; result: string }> = [];
 
         for (const command of commands) {
+          // Check for abort before executing each command
+          if (aborted) {
+            break;
+          }
+
           // Only send tool-call if we're using the fallback path
           if (detectedCommands.length === 0) {
             send({ type: 'tool-call', command });
           }
           // Signal that this command is now actually executing
           send({ type: 'tool-start', command });
+
+          // Track that sandbox is being used (shell commands use sandbox)
+          if (!command.startsWith('skill ')) {
+            sandboxUsed = true;
+          }
+
           const result = await executeCommand(command);
           executions.push({ command, result });
           send({ type: 'tool-result', command, result });
+        }
+
+        // Exit loop if aborted during command execution
+        if (aborted) {
+          send({ type: 'done' });
+          break;
         }
 
         // Store results as separate tool message
@@ -258,6 +291,15 @@ export async function POST(req: Request) {
         content: error instanceof Error ? error.message : 'Unknown error',
       });
     } finally {
+      // Clean up sandbox if user aborted and sandbox was used
+      if (aborted && sandboxUsed) {
+        try {
+          await clearSandboxExecutor();
+          console.log('[Agent] Sandbox cleaned up after abort');
+        } catch (cleanupError) {
+          console.error('[Agent] Failed to cleanup sandbox:', cleanupError);
+        }
+      }
       close();
     }
   })();
