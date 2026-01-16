@@ -95,6 +95,10 @@ export default function ForgeDemo() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [codifyingMessageId, setCodifyingMessageId] = useState<string | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillDetail | null>(null);
+  const [envVars, setEnvVars] = useState<Array<{ key: string; value: string }>>([]);
+  const [envPanelOpen, setEnvPanelOpen] = useState(false);
+  const [newEnvKey, setNewEnvKey] = useState('');
+  const [newEnvValue, setNewEnvValue] = useState('');
 
   // Skills management
   const { skills, loading: skillsLoading, deleteSkill } = useSkills();
@@ -287,8 +291,22 @@ export default function ForgeDemo() {
 
     const message = input;
     setInput('');
+
+    // Convert envVars array to Record for API
+    const envRecord = envVars.reduce((acc, { key, value }) => {
+      if (key.trim()) {
+        acc[key.trim()] = value;
+      }
+      return acc;
+    }, {} as Record<string, string>);
+
     // Pass conversation ID for codify-skill mode (tool fetches transcript from DB)
-    await sendMessage(message, currentMode, currentMode === 'codify-skill' ? currentId || undefined : undefined);
+    await sendMessage(
+      message,
+      currentMode,
+      currentMode === 'codify-skill' ? currentId || undefined : undefined,
+      Object.keys(envRecord).length > 0 ? envRecord : undefined
+    );
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -453,6 +471,98 @@ export default function ForgeDemo() {
 
         {/* Input area */}
         <div className="flex-shrink-0 border-t border-zinc-800 px-6 py-4">
+          {/* API Keys Panel */}
+          <div className="max-w-4xl mx-auto mb-3">
+            <button
+              type="button"
+              onClick={() => setEnvPanelOpen(!envPanelOpen)}
+              className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-300 transition-colors"
+            >
+              <svg
+                className={`w-4 h-4 transition-transform ${envPanelOpen ? 'rotate-90' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              API Keys
+              {envVars.length > 0 && (
+                <span className="px-1.5 py-0.5 text-xs bg-zinc-700 rounded">
+                  {envVars.length}
+                </span>
+              )}
+            </button>
+
+            {envPanelOpen && (
+              <div className="mt-3 p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
+                <p className="text-xs text-zinc-500 mb-3">
+                  Override or add environment variables for sandbox execution
+                </p>
+
+                {/* Saved variables */}
+                {envVars.length > 0 && (
+                  <div className="space-y-2 mb-3">
+                    {envVars.map((envVar, index) => (
+                      <div key={index} className="flex gap-2 items-center bg-zinc-800/50 px-3 py-2 rounded-lg">
+                        <span className="font-mono text-sm text-zinc-300">{envVar.key}</span>
+                        <span className="text-zinc-500">=</span>
+                        <span className="font-mono text-sm text-zinc-400 flex-1">••••••••</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newVars = envVars.filter((_, i) => i !== index);
+                            setEnvVars(newVars);
+                          }}
+                          className="p-1 text-zinc-500 hover:text-red-400 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new variable form */}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={newEnvKey}
+                    onChange={(e) => setNewEnvKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
+                    placeholder="KEY"
+                    className="flex-1 px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 font-mono"
+                  />
+                  <input
+                    type="password"
+                    value={newEnvValue}
+                    onChange={(e) => setNewEnvValue(e.target.value)}
+                    placeholder="value"
+                    className="flex-1 px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newEnvKey.trim() && newEnvValue.trim()) {
+                        setEnvVars([...envVars, { key: newEnvKey.trim(), value: newEnvValue }]);
+                        setNewEnvKey('');
+                        setNewEnvValue('');
+                      }
+                    }}
+                    disabled={!newEnvKey.trim() || !newEnvValue.trim()}
+                    className="px-3 py-2 text-sm bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-600 text-zinc-200 rounded-lg transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
             <div className="flex gap-3 items-end">
               <div className="flex-1 relative">

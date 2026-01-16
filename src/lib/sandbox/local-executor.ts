@@ -73,6 +73,10 @@ export class LocalSandboxExecutor implements SandboxExecutor {
       throw new SandboxTimeoutError();
     }
     this.lastActivityTime = Date.now();
+
+    // Ensure sandbox directory exists
+    await fs.mkdir(this.sandboxDir, { recursive: true });
+
     const [cmd] = command.trim().split(/\s+/);
 
     if (!ALLOWED_COMMANDS.includes(cmd)) {

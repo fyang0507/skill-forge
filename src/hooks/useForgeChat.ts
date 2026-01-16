@@ -142,7 +142,8 @@ export function useForgeChat(options?: UseForgeChatOptions) {
   const sendMessage = useCallback(async (
     content: string,
     mode: 'task' | 'codify-skill' = 'task',
-    conversationId?: string
+    conversationId?: string,
+    env?: Record<string, string>
   ) => {
     if (status === 'streaming') return;
 
@@ -236,7 +237,7 @@ export function useForgeChat(options?: UseForgeChatOptions) {
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages, mode, conversationId }),
+        body: JSON.stringify({ messages: apiMessages, mode, conversationId, env }),
         signal: abortControllerRef.current.signal,
       });
 

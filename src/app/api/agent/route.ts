@@ -4,6 +4,7 @@ import { extractCommands, formatToolResults } from '@/lib/tools/command-parser';
 import { executeCommand } from '@/lib/tools/command-executor';
 import { toModelMessages, type APIMessage } from '@/lib/messages/transform';
 import { clearSandboxExecutor, SandboxTimeoutError } from '@/lib/sandbox/executor';
+import { mergePlaygroundEnv } from '@/lib/tools/playground-env';
 
 const MAX_ITERATIONS = 10;
 
@@ -73,11 +74,15 @@ function createSSEStream() {
 
 
 export async function POST(req: Request) {
-  const { messages: initialMessages, mode = 'task', conversationId } = await req.json() as {
+  const { messages: initialMessages, mode = 'task', conversationId, env: uiEnv } = await req.json() as {
     messages: APIMessage[];
     mode?: AgentMode;
     conversationId?: string;
+    env?: Record<string, string>;
   };
+
+  // Merge UI env vars with .env.playground (local dev) or Vercel env (production)
+  const mergedEnv = mergePlaygroundEnv(uiEnv);
 
   if (!initialMessages || !Array.isArray(initialMessages) || initialMessages.length === 0) {
     return Response.json({ error: 'Messages array is required' }, { status: 400 });
@@ -262,7 +267,7 @@ export async function POST(req: Request) {
           }
 
           try {
-            const result = await executeCommand(command);
+            const result = await executeCommand(command, { env: mergedEnv });
             executions.push({ command, result });
             send({ type: 'tool-result', command, result });
           } catch (error) {

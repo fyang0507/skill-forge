@@ -1,6 +1,13 @@
 # Changelog
 
-Last Updated: 2026-01-15
+Last Updated: 2026-01-16
+
+## 2026-01-16: UI-Based Environment Variable Injection
+
+- **API Keys panel**: Collapsible UI above input with key/value form, validation (uppercase, alphanumeric+underscore), masked values, delete buttons
+- **Environment merge chain**: UI vars → `.env.playground` (local) or Vercel env (prod) → process.env
+- **Sandbox directory fix**: `LocalSandboxExecutor.execute()` now auto-creates `.sandbox` directory before command execution (fixes ENOENT error)
+- **New files**: `playground-env.ts` (env loader), updated `command-executor.ts`, `shell-executor.ts`, `route.ts`, `useForgeChat.ts`, `ForgeDemo.tsx`
 
 ## 2026-01-15: Agent Prompt Improvements - Skills vs Sandbox Clarity
 

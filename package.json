@@ -20,6 +20,7 @@
     "@vercel/sandbox": "^1.2.0",
     "ai": "^6.0.33",
     "braintrust": "^1.1.1",
+    "dotenv": "^17.2.3",
     "fuse.js": "^7.1.0",
     "gray-matter": "^4.0.3",
     "next": "16.1.1",
