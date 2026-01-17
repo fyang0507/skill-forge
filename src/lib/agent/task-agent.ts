@@ -42,9 +42,9 @@ If not suggesting a skill, end with your success summary.
 ## Phase 4: Re-suggestion (Persistent Learning)
 
 If you previously suggested skill codification but the user continued without codifying:
-- Re-suggest at the next natural completion point (after follow-up task completes)
-- Use updated description incorporating all learnings from the conversation
-- Do NOT re-suggest if user explicitly declined or topic changed significantly
+- Re-suggest at the next natural completion point (after follow-up completes)
+- If applicable, use updated description incorporating all learnings from the follow-up
+- Do NOT re-suggest if user explicitly declined
 
 **When to suggest codification:**
 - New procedure learned (debugging, trial-and-error, API discovery)
