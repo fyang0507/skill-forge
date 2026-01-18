@@ -1,6 +1,13 @@
 # Changelog
 
-Last Updated: 2026-01-16
+Last Updated: 2026-01-17
+
+## 2026-01-17: Skill Suggest Unification + Test Fixes
+
+- **Unified `skill suggest` syntax**: Changed from `--update="name"` to `--name="name" [--force]` with backend fuzzy search detection
+- **Two-phase flow**: Backend returns `status: 'success'` (no similar skills) or `status: 'guidance'` (similar found, agent reviews then uses `--force`)
+- **Search scoring**: Added `SkillSearchResult` interface with similarity score (0-1), storage search now returns scores
+- **Test isolation fixes**: Fixed sandbox path issues (`LocalSandboxExecutor` uses `.sandbox/{sandboxId}`), added `clearSandboxExecutor()` calls between tests
 
 ## 2026-01-16: Sandbox Sharing Between TaskAgent and SkillAgent
 

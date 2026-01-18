@@ -33,8 +33,11 @@ For procedural tasks, check if a relevant skill exists before execution.
 When task is verified complete:
 1. Report success to user with a brief summary
 2. Suggest skill codification if applicable:
-   <shell>skill suggest "brief description of what was learned"</shell>
-   Or if updating: <shell>skill suggest "desc" --update="skill-name"</shell>
+   <shell>skill suggest "brief description of what was learned" --name="suggested-skill-name"</shell>
+
+   The backend will respond with one of:
+   - \`status: 'success'\` - No similar skills found, proceed with codification
+   - \`status: 'guidance'\` - Similar skill(s) found. Review with \`skill get <name>\`, then re-run with --force to proceed
 3. After output confirms success, respond only "COMPLETE"
 
 If not suggesting a skill, end with your success summary.
@@ -73,7 +76,7 @@ If you previously suggested skill codification but the user continued without co
 <shell>skill search keyword</shell>    - Search skills by keyword
 <shell>skill get name</shell>          - Read a skill's full content (includes file list)
 <shell>skill copy-to-sandbox name file</shell> - Copy skill file to sandbox
-<shell>skill suggest "desc"</shell>    - Suggest creating a new skill (see Phase 3)
+<shell>skill suggest "desc" --name="name"</shell> - Suggest codifying a skill (see Phase 3)
 
 ### Shell Output Handling (STRICT)
 **NEVER declare success or output "COMPLETE" in the same turn as a shell command.**

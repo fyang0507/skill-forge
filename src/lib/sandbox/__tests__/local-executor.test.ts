@@ -2,19 +2,24 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
 import { LocalSandboxExecutor } from '../local-executor';
 
-const TEST_SANDBOX_DIR = '.test-sandbox';
+// Use unique sandbox ID per test to avoid parallel test conflicts
+// LocalSandboxExecutor uses .sandbox/{sandboxId} as the actual path
+let testSandboxId: string;
+let testSandboxDir: string;
 
 describe('LocalSandboxExecutor', () => {
   let executor: LocalSandboxExecutor;
 
   beforeEach(async () => {
-    await fs.rm(TEST_SANDBOX_DIR, { recursive: true, force: true }).catch(() => {});
-    await fs.mkdir(TEST_SANDBOX_DIR, { recursive: true });
-    executor = new LocalSandboxExecutor(TEST_SANDBOX_DIR);
+    testSandboxId = `test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    testSandboxDir = `.sandbox/${testSandboxId}`;
+    await fs.rm(testSandboxDir, { recursive: true, force: true }).catch(() => {});
+    await fs.mkdir(testSandboxDir, { recursive: true });
+    executor = new LocalSandboxExecutor(testSandboxId);
   });
 
   afterEach(async () => {
-    await fs.rm(TEST_SANDBOX_DIR, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(testSandboxDir, { recursive: true, force: true }).catch(() => {});
   });
 
   describe('execute', () => {
@@ -53,27 +58,27 @@ describe('LocalSandboxExecutor', () => {
   describe('writeFile', () => {
     it('should write file to sandbox directory', async () => {
       await executor.writeFile('test.txt', 'hello world');
-      const content = await fs.readFile(`${TEST_SANDBOX_DIR}/test.txt`, 'utf-8');
+      const content = await fs.readFile(`${testSandboxDir}/test.txt`, 'utf-8');
       expect(content).toBe('hello world');
     });
 
     it('should create parent directories', async () => {
       await executor.writeFile('nested/dir/test.txt', 'nested content');
-      const content = await fs.readFile(`${TEST_SANDBOX_DIR}/nested/dir/test.txt`, 'utf-8');
+      const content = await fs.readFile(`${testSandboxDir}/nested/dir/test.txt`, 'utf-8');
       expect(content).toBe('nested content');
     });
 
     it('should write Buffer content', async () => {
       const buffer = Buffer.from('binary content');
       await executor.writeFile('binary.bin', buffer);
-      const content = await fs.readFile(`${TEST_SANDBOX_DIR}/binary.bin`);
+      const content = await fs.readFile(`${testSandboxDir}/binary.bin`);
       expect(content.toString()).toBe('binary content');
     });
   });
 
   describe('readFile', () => {
     it('should read file from sandbox', async () => {
-      await fs.writeFile(`${TEST_SANDBOX_DIR}/readable.txt`, 'read me');
+      await fs.writeFile(`${testSandboxDir}/readable.txt`, 'read me');
       const content = await executor.readFile('readable.txt');
       expect(content).toBe('read me');
     });
@@ -86,8 +91,8 @@ describe('LocalSandboxExecutor', () => {
 
   describe('listFiles', () => {
     it('should list files in sandbox', async () => {
-      await fs.writeFile(`${TEST_SANDBOX_DIR}/file1.txt`, 'content1');
-      await fs.writeFile(`${TEST_SANDBOX_DIR}/file2.txt`, 'content2');
+      await fs.writeFile(`${testSandboxDir}/file1.txt`, 'content1');
+      await fs.writeFile(`${testSandboxDir}/file2.txt`, 'content2');
 
       const files = await executor.listFiles();
       expect(files).toContain('file1.txt');
@@ -100,8 +105,8 @@ describe('LocalSandboxExecutor', () => {
     });
 
     it('should list files in subdirectory', async () => {
-      await fs.mkdir(`${TEST_SANDBOX_DIR}/subdir`, { recursive: true });
-      await fs.writeFile(`${TEST_SANDBOX_DIR}/subdir/nested.txt`, 'nested');
+      await fs.mkdir(`${testSandboxDir}/subdir`, { recursive: true });
+      await fs.writeFile(`${testSandboxDir}/subdir/nested.txt`, 'nested');
 
       const files = await executor.listFiles('subdir');
       expect(files).toContain('nested.txt');
@@ -115,7 +120,7 @@ describe('LocalSandboxExecutor', () => {
 
   describe('cleanup', () => {
     it('should remove all files from sandbox', async () => {
-      await fs.writeFile(`${TEST_SANDBOX_DIR}/cleanup-test.txt`, 'will be deleted');
+      await fs.writeFile(`${testSandboxDir}/cleanup-test.txt`, 'will be deleted');
       await executor.cleanup();
 
       const files = await executor.listFiles();
@@ -126,7 +131,7 @@ describe('LocalSandboxExecutor', () => {
       await executor.cleanup();
 
       // Directory should exist after cleanup
-      const stats = await fs.stat(TEST_SANDBOX_DIR);
+      const stats = await fs.stat(testSandboxDir);
       expect(stats.isDirectory()).toBe(true);
     });
   });

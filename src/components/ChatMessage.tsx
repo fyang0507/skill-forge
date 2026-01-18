@@ -7,8 +7,12 @@ import { Message, MessagePart } from '@/hooks/useForgeChat';
 import { MessageStats } from './MessageStats';
 
 export interface SkillSuggestion {
+  status: 'success' | 'guidance';
   learned: string;
-  skillToUpdate?: string | null;
+  name?: string;           // For status: 'success'
+  suggestedName?: string;  // For status: 'guidance'
+  similarSkills?: string[];
+  message?: string;
 }
 
 interface ChatMessageProps {
@@ -25,8 +29,12 @@ function parseToolSkillSuggestion(parts: MessagePart[]): SkillSuggestion | null 
         const result = JSON.parse(part.content);
         if (result.type === 'skill-suggestion') {
           return {
+            status: result.status,
             learned: result.learned,
-            skillToUpdate: result.skillToUpdate || null,
+            name: result.name,
+            suggestedName: result.suggestedName,
+            similarSkills: result.similarSkills,
+            message: result.message,
           };
         }
       } catch {
@@ -353,41 +361,29 @@ export default function ChatMessage({ message, onCodifySkill, isCodifying }: Cha
               return <TextPart key={index} content={part.content} />;
             })}
             <MessageStats stats={message.stats} />
-            {skillSuggestion && onCodifySkill && (
+            {skillSuggestion && skillSuggestion.status === 'success' && onCodifySkill && (
               <div className="mt-3 pt-3 border-t border-zinc-700">
                 <button
                   onClick={() => onCodifySkill(skillSuggestion)}
                   disabled={isCodifying}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-sm text-white rounded-lg transition-colors disabled:bg-zinc-600 disabled:cursor-not-allowed ${
-                    skillSuggestion.skillToUpdate
-                      ? 'bg-amber-600 hover:bg-amber-500'
-                      : 'bg-emerald-600 hover:bg-emerald-500'
-                  }`}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-white rounded-lg transition-colors disabled:bg-zinc-600 disabled:cursor-not-allowed bg-emerald-600 hover:bg-emerald-500"
                 >
                   {isCodifying ? (
                     <>
                       <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>{skillSuggestion.skillToUpdate ? 'Updating...' : 'Codifying...'}</span>
+                      <span>Codifying...</span>
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        {skillSuggestion.skillToUpdate ? (
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        ) : (
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        )}
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
-                      <span>{skillSuggestion.skillToUpdate ? 'Update Skill' : 'Codify as Skill'}</span>
+                      <span>Codify as Skill</span>
                     </>
                   )}
                 </button>
                 <p className="mt-1 text-xs text-zinc-500">
-                  {skillSuggestion.skillToUpdate ? (
-                    <>Update <code className="bg-zinc-700 px-1 rounded">{skillSuggestion.skillToUpdate}</code>: {skillSuggestion.learned}</>
-                  ) : (
-                    <>Learned: {skillSuggestion.learned}</>
-                  )}
+                  <code className="bg-zinc-700 px-1 rounded">{skillSuggestion.name}</code>: {skillSuggestion.learned}
                 </p>
               </div>
             )}

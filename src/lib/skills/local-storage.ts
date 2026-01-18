@@ -6,7 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import matter from 'gray-matter';
 import Fuse from 'fuse.js';
-import type { SkillStorage, SkillMeta, Skill } from './storage';
+import type { SkillStorage, SkillMeta, Skill, SkillSearchResult } from './storage';
 
 const SKILLS_DIR = '.skills';
 
@@ -46,16 +46,20 @@ export class LocalStorage implements SkillStorage {
     }
   }
 
-  async search(keyword: string): Promise<SkillMeta[]> {
+  async search(keyword: string): Promise<SkillSearchResult[]> {
     const skills = await this.list();
     if (skills.length === 0) return [];
 
     const fuse = new Fuse(skills, {
       keys: ['name', 'description'],
-      threshold: 0.4,
+      threshold: 0.6,  // Allow broader matches for fuzzy search
+      includeScore: true,
     });
 
-    return fuse.search(keyword).map(r => r.item);
+    return fuse.search(keyword).map(r => ({
+      ...r.item,
+      score: 1 - (r.score ?? 0),  // Convert Fuse distance (0=perfect) to similarity (1=perfect)
+    }));
   }
 
   async get(name: string): Promise<Skill | null> {

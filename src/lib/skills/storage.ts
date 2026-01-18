@@ -18,9 +18,13 @@ export interface Skill extends SkillMeta {
   files: string[];  // list of additional files
 }
 
+export interface SkillSearchResult extends SkillMeta {
+  score: number;  // Similarity score 0-1 (1 = exact match)
+}
+
 export interface SkillStorage {
   list(): Promise<SkillMeta[]>;
-  search(keyword: string): Promise<SkillMeta[]>;
+  search(keyword: string): Promise<SkillSearchResult[]>;
   get(name: string): Promise<Skill | null>;
   set(name: string, content: string): Promise<void>;
   addFile(name: string, filename: string, content: string): Promise<void>;

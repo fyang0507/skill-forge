@@ -335,9 +335,7 @@ export default function ForgeDemo() {
 
     // Send a message to trigger skill codification agent
     // Pass conversationId - the tool will fetch the transcript from DB
-    const codifyPrompt = suggestion.skillToUpdate
-      ? `Update the existing skill "${suggestion.skillToUpdate}" based on the conversation above.`
-      : `Analyze the conversation above and codify the procedural knowledge.`;
+    const codifyPrompt = `Codify the skill "${suggestion.name}" based on the conversation above.`;
     await sendMessage(codifyPrompt, 'codify-skill', currentId || undefined);
 
     setCodifyingMessageId(null);

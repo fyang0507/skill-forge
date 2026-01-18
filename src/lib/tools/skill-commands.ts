@@ -21,7 +21,8 @@ const skillCommands: Record<string, CommandHandler> = {
   skill get-file <name> <filename>        - Read a file from skill
   skill copy-to-sandbox <name> <filename> - Copy skill file to sandbox
   skill add-file <filename> <name>        - Add sandbox file to a skill
-  skill suggest "..." [--update="name"]   - Suggest codifying a learned procedure`,
+  skill suggest "..." --name="name"       - Suggest codifying a learned procedure
+  skill suggest "..." --name="name" --force - Skip similar skill check`,
 
   'list': async () => {
     const storage = getStorage();
@@ -104,21 +105,54 @@ const skillCommands: Record<string, CommandHandler> = {
     return `Added ${filename} to skill "${skillName}"`;
   },
 
-  'suggest': (args) => {
-    // Parse: skill suggest "description" [--update="skill-name"]
-    const match = args.match(/^"([^"]+)"(?:\s+--update="([^"]+)")?$/);
+  'suggest': async (args) => {
+    // Parse: skill suggest "description" --name="skill-name" [--force]
+    const match = args.match(/^"([^"]+)"\s+--name="([^"]+)"(\s+--force)?$/);
     if (!match) {
       return JSON.stringify({
         type: 'skill-suggestion-error',
-        error: 'Usage: skill suggest "description" [--update="skill-name"]',
+        error: 'Usage: skill suggest "description" --name="skill-name" [--force]',
       });
     }
 
-    const [, learned, skillToUpdate] = match;
+    const [, learned, skillName, forceFlag] = match;
+    const storage = getStorage();
+
+    // If --force, skip fuzzy search
+    if (forceFlag) {
+      return JSON.stringify({
+        type: 'skill-suggestion',
+        status: 'success',
+        name: skillName,
+        learned,
+      });
+    }
+
+    // Fuzzy search using requested name
+    const SIMILARITY_THRESHOLD = 0.5;
+    const results = await storage.search(skillName);
+    const similarSkills = results
+      .filter((r) => r.score >= SIMILARITY_THRESHOLD)
+      .map((r) => r.name);
+
+    if (similarSkills.length > 0) {
+      const skillList = similarSkills.slice(0, 3).map((s) => `"${s}"`).join(', ');
+      return JSON.stringify({
+        type: 'skill-suggestion',
+        status: 'guidance',
+        suggestedName: skillName,
+        similarSkills,
+        learned,
+        message: `Similar skill(s) found: ${skillList}. Use \`skill get <name>\` to review. To proceed anyway, re-run with the same parameters and add --force flag.`,
+      });
+    }
+
+    // No match - success
     return JSON.stringify({
       type: 'skill-suggestion',
+      status: 'success',
+      name: skillName,
       learned,
-      skillToUpdate: skillToUpdate || null,
     });
   },
 };
