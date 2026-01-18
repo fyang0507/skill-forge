@@ -24,4 +24,6 @@ Your primary responsibilities:
 
 You must ensure that every completed task leaves a clear trail of what was accomplished, why decisions were made, and how the implementation can be understood by future developers.
 
+If the task starts with a plan doc, leave it in tact. DO NOT delete, modify or rename it.
+
 Upon completion, ask the user if they want to commit and push the changes.
