@@ -42,6 +42,13 @@ executeCommand() [command-executor.ts]
 **Runner:** Vitest (`pnpm test`)
 **Coverage:** Unit tests for storage, sandbox executors, and command execution.
 
+## Playground Tasks
+
+Attached 4 tasks for testing/demo purposes in `playground/`
+- send discord message (using discord webhook api)
+- create stripe transaction (using stripe API)
+- generate video summary for watchlist
+
 ## Project Memory
 
 `MEMORY/` directory holds plans, changelogs, and completed issues. Check `MEMORY/changelog.md` for recent updates.
