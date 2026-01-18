@@ -7,9 +7,7 @@ import { SandboxTimeoutError } from './executor';
 
 const execAsync = promisify(exec);
 
-const DEFAULT_TIMEOUT_MS = 10000;
 const MAX_BUFFER = 1024 * 1024; // 1MB
-const IDLE_TIMEOUT_MS = 300000; // 5 minutes idle timeout (same as Vercel)
 
 const ALLOWED_COMMANDS = [
   'sh',
@@ -43,7 +41,6 @@ const ALLOWED_COMMANDS = [
 export class LocalSandboxExecutor implements SandboxExecutor {
   private sandboxDir: string;
   private sandboxId: string;
-  private lastActivityTime: number = Date.now();
   private isDead: boolean = false;
 
   constructor(sandboxId: string = 'default') {
@@ -56,29 +53,18 @@ export class LocalSandboxExecutor implements SandboxExecutor {
   }
 
   isAlive(): boolean {
-    if (this.isDead) return false;
-    const elapsed = Date.now() - this.lastActivityTime;
-    if (elapsed > IDLE_TIMEOUT_MS) {
-      this.isDead = true;
-      return false;
-    }
-    return true;
+    return !this.isDead;
   }
 
   async resetTimeout(): Promise<boolean> {
-    if (!this.isAlive()) {
-      return false;
-    }
-    this.lastActivityTime = Date.now();
-    return true;
+    return this.isAlive();
   }
 
   async execute(command: string, options?: ExecuteOptions): Promise<CommandResult> {
-    // Check if sandbox is still alive and reset timeout
+    // Check if sandbox is still alive
     if (!this.isAlive()) {
       throw new SandboxTimeoutError();
     }
-    this.lastActivityTime = Date.now();
 
     // Ensure sandbox directory exists
     await fs.mkdir(this.sandboxDir, { recursive: true });
@@ -93,11 +79,9 @@ export class LocalSandboxExecutor implements SandboxExecutor {
       };
     }
 
-    const timeout = options?.timeout ?? DEFAULT_TIMEOUT_MS;
-
     try {
       const { stdout, stderr } = await execAsync(command, {
-        timeout,
+        timeout: options?.timeout,
         maxBuffer: MAX_BUFFER,
         cwd: options?.cwd ?? this.sandboxDir,
         env: options?.env ? { ...process.env, ...options.env } : undefined,
@@ -110,10 +94,11 @@ export class LocalSandboxExecutor implements SandboxExecutor {
       };
     } catch (error) {
       if (error instanceof Error) {
-        if ('killed' in error && error.killed) {
+        // Handle explicit timeout (when options.timeout is provided)
+        if ('killed' in error && error.killed && options?.timeout) {
           return {
             stdout: '',
-            stderr: `Command timed out (${timeout / 1000}s)`,
+            stderr: `Command timed out (${options.timeout / 1000}s)`,
             exitCode: 124, // Standard timeout exit code
           };
         }
