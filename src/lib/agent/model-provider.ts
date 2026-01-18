@@ -45,10 +45,6 @@ function getConfig(): ProviderConfig {
   );
 }
 
-export function getGoogleProvider(): GoogleGenerativeAIProvider {
-  return getConfig().provider;
-}
-
 export function getProModel() {
   const { provider, mode } = getConfig();
   const modelName = MODEL_NAMES[mode].pro;

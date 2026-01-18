@@ -1,5 +1,5 @@
-import { GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
-import { getGoogleProvider, getProModel } from './model-provider';
+import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
+import { getProModel } from './model-provider';
 import { getAgent } from './braintrust-wrapper';
 
 const TASK_AGENT_INSTRUCTIONS = `You are a Task Execution Agent with access to a skill library.
@@ -57,11 +57,16 @@ If you previously suggested skill codification but the user continued without co
 - google_search - Search the web for information
 - url_context - Analyze URLs including YouTube videos
 
-## 2. Shell Commands (Literal Text)
-- To run shell commands, output the exact text <shell>command</shell>.
-- The system parses this, runs it, and returns the result in the next turn.
-- The system can handle multiple shell commands in one turn, but you need to wrap each command in the <shell> block respectively.
-- NEVER call shell as a function.
+## 2. Shell Commands (Continuation Pattern)
+Shell commands are **yield points**, not conversation endings. When you output \`<shell>command</shell>\`:
+1. The harness intercepts and executes it
+2. Results return in your next turn
+3. You continue working toward task completion
+
+**This is a multi-turn loop, not a single response.** Output shell commands freely—they make your execution visible and don't end the task.
+
+- Multiple \`<shell>\` blocks per turn: OK (executed sequentially)
+- NEVER call shell as a function—it's literal text the harness parses
 
 ### Skill System Commands
 <shell>skill list</shell>              - List all saved skills
@@ -70,12 +75,17 @@ If you previously suggested skill codification but the user continued without co
 <shell>skill copy-to-sandbox name file</shell> - Copy skill file to sandbox
 <shell>skill suggest "desc" --name="name"</shell> - Suggest codifying a skill (see Phase 3)
 
-### Shell Output Handling (STRICT)
-**NEVER declare success or output "COMPLETE" in the same turn as a shell command.**
-- Emit shell command(s) → END YOUR TURN IMMEDIATELY. No summary, no "COMPLETE", no success message.
-- Wait for the system to return output in the next turn.
-- Only AFTER seeing actual output: verify success, then report results.
-- On error: fix and retry. On success: then you may summarize and complete.
+### Shell Turn Protocol
+After emitting \`<shell>\` block(s), **stop and wait**—the harness needs to execute before you see results.
+
+\`\`\`
+Turn N: [reasoning] → <shell>curl ...</shell> → STOP (hand off to harness)
+Turn N+1: [shell output arrives] → [reasoning] → continue or complete
+\`\`\`
+
+- Don't declare success in the same turn as a shell command (you haven't seen results yet)
+- The conversation WILL continue—this isn't your final response
+- On error: iterate. On success: proceed to next step or complete.
 
 # CRITICAL: Bias Towards Simplicity
 **ALWAYS prefer CLI tools over scripts.** Before writing ANY code:
@@ -101,11 +111,19 @@ Shell commands automatically run in the sandbox directory. Prefer pure bash when
 # Response Guidelines
 - **Be Concise:** Focus on the task completion, announce key milestones but do not over explain.
 - **One at a time:** Do not try to Search and Execute all in one message.
-- **STOP after shell commands:** Your turn MUST end after <shell>...</shell>. Never add conclusions after.`;
+- **STOP after shell commands:** Your turn MUST end after <shell>...</shell>. Never add conclusions after.
+
+# Execution Transparency
+
+**Prefer shell commands over reasoning-only execution.** The transcript (visible turns, not reasoning) should be self-documenting for skill codification.
+
+- Use reasoning for: planning, analysis, deliberation
+- Use shell output for: API calls, file operations, verification steps, anything that should be recorded
+
+When in doubt, make it visible via \`<shell>\`. Hidden work in reasoning can't be codified into skills.`;
 
 function createTaskAgent() {
   const Agent = getAgent();
-  const google = getGoogleProvider();
   return new Agent({
     model: getProModel(),
     instructions: TASK_AGENT_INSTRUCTIONS,
