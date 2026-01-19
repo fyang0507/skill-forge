@@ -2,6 +2,13 @@
 
 Last Updated: 2026-01-19
 
+## 2026-01-19: Agent stopWhen Termination Fix
+
+- **Built-in multi-step**: Replaced manual while-loop in `route.ts` with agent's native `stopWhen` condition - agents now handle multi-step execution internally
+- **COMPLETE signal detection**: Both `task-agent.ts` and `skill-agent.ts` use `hasCompleteSignal` stop condition that checks if output ends with "COMPLETE"
+- **Dual stop conditions**: Agents configured with `stopWhen: [stepCountIs(10), hasCompleteSignal]` - stops on either 10 steps or COMPLETE signal
+- **Root cause**: Previous manual loop only checked `hasToolCalls`, ignoring the "COMPLETE" text signal which caused extra iterations after completion
+
 ## 2026-01-19: Transcript Fidelity Improvements
 
 - **Full execution history**: `toTranscriptString()` now processes `parts` array (reasoning, agent-tool, text) instead of lossy `iterations`, giving skill agent complete visibility into tool calls and reasoning
