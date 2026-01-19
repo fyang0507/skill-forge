@@ -9,6 +9,7 @@ import { CumulativeStatsBar } from './CumulativeStats';
 import { Sidebar } from './Sidebar';
 import { SandboxTimeoutBanner } from './SandboxTimeoutBanner';
 import { useSkills } from '@/hooks/useSkills';
+import { DemoLayout } from './demo/DemoLayout';
 
 const EXAMPLE_PROMPTS = [
   'What skills do I have?',
@@ -99,6 +100,12 @@ export default function ForgeDemo() {
   const [envPanelOpen, setEnvPanelOpen] = useState(false);
   const [newEnvKey, setNewEnvKey] = useState('');
   const [newEnvValue, setNewEnvValue] = useState('');
+
+  // Comparison mode state
+  const [isComparisonMode, setIsComparisonMode] = useState(false);
+  const [leftConversationId, setLeftConversationId] = useState<string | null>(null);
+  const [rightConversationId, setRightConversationId] = useState<string | null>(null);
+  const [selectedForComparison, setSelectedForComparison] = useState<string | null>(null);
 
   // Skills management
   const { skills, loading: skillsLoading, deleteSkill } = useSkills();
@@ -354,6 +361,37 @@ export default function ForgeDemo() {
     }
   }, []);
 
+  // Comparison mode handlers
+  const handleAddToLeft = useCallback((id: string) => {
+    setLeftConversationId(id);
+    setSelectedForComparison(null);
+  }, []);
+
+  const handleAddToRight = useCallback((id: string) => {
+    setRightConversationId(id);
+    setSelectedForComparison(null);
+  }, []);
+
+  const handleClearLeft = useCallback(() => {
+    setLeftConversationId(null);
+  }, []);
+
+  const handleClearRight = useCallback(() => {
+    setRightConversationId(null);
+  }, []);
+
+  const handleToggleComparisonMode = useCallback(() => {
+    setIsComparisonMode(prev => {
+      if (prev) {
+        // Exiting comparison mode - clear selections
+        setLeftConversationId(null);
+        setRightConversationId(null);
+        setSelectedForComparison(null);
+      }
+      return !prev;
+    });
+  }, []);
+
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">
       {/* Sandbox timeout notification */}
@@ -378,97 +416,146 @@ export default function ForgeDemo() {
         skillsLoading={skillsLoading}
         onDeleteSkill={deleteSkill}
         onSelectSkill={handleSelectSkill}
+        isComparisonMode={isComparisonMode}
+        selectedForComparison={selectedForComparison}
+        onSelectForComparison={setSelectedForComparison}
+        onAddToLeft={handleAddToLeft}
+        onAddToRight={handleAddToRight}
       />
 
       {/* Main content */}
       <div className={`flex flex-col flex-1 transition-all duration-200 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
         {/* Header */}
         <header className="flex-shrink-0 px-6 py-4 border-b border-zinc-800">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className={`${isComparisonMode ? '' : 'max-w-4xl'} mx-auto flex items-center justify-between`}>
             <div className={`transition-all ${sidebarOpen ? '' : 'ml-12'}`}>
               <h1 className="text-xl font-bold">SkillForge</h1>
               <p className="text-sm text-zinc-400">
                 Learn from YouTube tutorials and create reusable skills
               </p>
             </div>
-            {messages.length > 0 && (
-              <button
-                onClick={() => handleNewChat()}
-                className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
-              >
-                New chat
-              </button>
-            )}
+
+            <div className="flex items-center gap-3">
+              {/* Mode toggle */}
+              <div className="flex items-center bg-zinc-800 rounded-lg p-1">
+                <button
+                  onClick={handleToggleComparisonMode}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    !isComparisonMode
+                      ? 'bg-zinc-700 text-zinc-100'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  Normal
+                </button>
+                <button
+                  onClick={handleToggleComparisonMode}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    isComparisonMode
+                      ? 'bg-zinc-700 text-zinc-100'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                  data-testid="comparison-toggle"
+                >
+                  Comparison
+                </button>
+              </div>
+
+              {/* New chat button */}
+              {!isComparisonMode && messages.length > 0 && (
+                <button
+                  onClick={() => handleNewChat()}
+                  className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+                >
+                  New chat
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-6 py-6">
-            {messages.length === 0 ? (
-              // Empty state
-              <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
-                <div className="w-16 h-16 mb-6 rounded-full bg-zinc-800 flex items-center justify-center">
-                  <svg
-                    className="w-8 h-8 text-zinc-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                    />
-                  </svg>
-                </div>
-                <h2 className="text-lg font-medium mb-2">How can I help you?</h2>
-                <p className="text-zinc-400 mb-6 max-w-md">
-                  Ask me to learn from a YouTube tutorial, search existing skills,
-                  or help with a topic.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {EXAMPLE_PROMPTS.map((prompt) => (
-                    <button
-                      key={prompt}
-                      onClick={() => handleExampleClick(prompt)}
-                      className="px-3 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300 transition-colors"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              // Messages list
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <ChatMessage
-                    key={message.id}
-                    message={message}
-                    onCodifySkill={(suggestion) => handleCodifySkill(message.id, suggestion)}
-                    isCodifying={codifyingMessageId === message.id}
-                  />
-                ))}
-                {error && (
-                  <div className="flex justify-center">
-                    <div className="px-4 py-2 bg-red-900/50 border border-red-800 rounded-lg text-red-200 text-sm">
-                      Error: {error}
+        {/* Conditional content: Comparison mode or Normal mode */}
+        {isComparisonMode ? (
+          <DemoLayout
+            leftConversationId={leftConversationId}
+            rightConversationId={rightConversationId}
+            onDropLeft={handleAddToLeft}
+            onDropRight={handleAddToRight}
+            onClearLeft={handleClearLeft}
+            onClearRight={handleClearRight}
+            skills={skills}
+            skillsLoading={skillsLoading}
+            onSelectSkill={handleSelectSkill}
+          />
+        ) : (
+          <>
+            {/* Messages area */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-4xl mx-auto px-6 py-6">
+                {messages.length === 0 ? (
+                  // Empty state
+                  <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+                    <div className="w-16 h-16 mb-6 rounded-full bg-zinc-800 flex items-center justify-center">
+                      <svg
+                        className="w-8 h-8 text-zinc-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                        />
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-medium mb-2">How can I help you?</h2>
+                    <p className="text-zinc-400 mb-6 max-w-md">
+                      Ask me to learn from a YouTube tutorial, search existing skills,
+                      or help with a topic.
+                    </p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {EXAMPLE_PROMPTS.map((prompt) => (
+                        <button
+                          key={prompt}
+                          onClick={() => handleExampleClick(prompt)}
+                          className="px-3 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300 transition-colors"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
                     </div>
                   </div>
+                ) : (
+                  // Messages list
+                  <div className="space-y-4">
+                    {messages.map((message) => (
+                      <ChatMessage
+                        key={message.id}
+                        message={message}
+                        onCodifySkill={(suggestion) => handleCodifySkill(message.id, suggestion)}
+                        isCodifying={codifyingMessageId === message.id}
+                      />
+                    ))}
+                    {error && (
+                      <div className="flex justify-center">
+                        <div className="px-4 py-2 bg-red-900/50 border border-red-800 rounded-lg text-red-200 text-sm">
+                          Error: {error}
+                        </div>
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
                 )}
-                <div ref={messagesEndRef} />
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* Cumulative stats footer */}
-        <CumulativeStatsBar stats={cumulativeStats} />
+            {/* Cumulative stats footer */}
+            <CumulativeStatsBar stats={cumulativeStats} />
 
-        {/* Input area */}
-        <div className="flex-shrink-0 border-t border-zinc-800 px-6 py-4">
+            {/* Input area */}
+            <div className="flex-shrink-0 border-t border-zinc-800 px-6 py-4">
           {/* API Keys Panel */}
           <div className="max-w-4xl mx-auto mb-3">
             <button
@@ -622,6 +709,8 @@ export default function ForgeDemo() {
             </p>
           </form>
         </div>
+          </>
+        )}
       </div>
 
       {/* Skill Detail Modal */}

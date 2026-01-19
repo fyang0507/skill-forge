@@ -133,6 +133,14 @@ export async function POST(req: Request) {
       // Convert to ModelMessage array (preserves structure for KV cache)
       const modelMessages = toModelMessages(messages);
 
+      // Track cumulative usage across all steps (for multi-step agentic flows)
+      let cumulativeUsage = {
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        reasoningTokens: 0,
+      };
+
       // Stream agent response - agent handles multi-step via stopWhen condition
       const result = await agent.stream({ messages: modelMessages });
 
@@ -200,9 +208,36 @@ export async function POST(req: Request) {
             });
             break;
           }
-          default:
-            // Log unhandled event types for debugging
-            console.log('[Stream Debug] Unhandled event type:', (part as { type: string }).type);
+          default: {
+            // Handle step-finish events (not in TypeScript types but emitted by AI SDK)
+            const eventType = (part as { type: string }).type;
+            if (eventType === 'step-finish') {
+              // Accumulate usage from each step (for multi-step agentic flows)
+              const stepPart = part as {
+                usage?: {
+                  promptTokens?: number;
+                  completionTokens?: number;
+                };
+                experimental_providerMetadata?: {
+                  google?: {
+                    cachedContentTokenCount?: number;
+                  };
+                };
+              };
+              if (stepPart.usage) {
+                cumulativeUsage.inputTokens += stepPart.usage.promptTokens || 0;
+                cumulativeUsage.outputTokens += stepPart.usage.completionTokens || 0;
+                // Cache tokens from provider metadata
+                const googleMeta = stepPart.experimental_providerMetadata?.google;
+                cumulativeUsage.cacheReadTokens += googleMeta?.cachedContentTokenCount || 0;
+              }
+              console.log('[Step Debug] Step finished, cumulative usage:', cumulativeUsage);
+            } else {
+              // Log other unhandled event types for debugging
+              console.log('[Stream Debug] Unhandled event type:', eventType);
+            }
+            break;
+          }
         }
       }
 
@@ -212,21 +247,30 @@ export async function POST(req: Request) {
       const reasoningTokens = (usage?.outputTokenDetails as { reasoningTokens?: number })?.reasoningTokens;
       const executionTimeMs = Date.now() - startTime;
 
+      // Use cumulative usage from step-finish events if available (more accurate for multi-step)
+      // Fall back to final result.usage if no step events were captured
+      const hasCumulativeUsage = cumulativeUsage.inputTokens > 0 || cumulativeUsage.outputTokens > 0;
+      const finalInputTokens = hasCumulativeUsage ? cumulativeUsage.inputTokens : usage?.inputTokens;
+      const finalOutputTokens = hasCumulativeUsage ? cumulativeUsage.outputTokens : usage?.outputTokens;
+      const finalCacheTokens = hasCumulativeUsage ? cumulativeUsage.cacheReadTokens : cacheReadTokens;
+
       console.log('[Cache Debug]', {
-        inputTokens: usage?.inputTokens,
-        outputTokens: usage?.outputTokens,
-        cacheReadTokens,
+        inputTokens: finalInputTokens,
+        outputTokens: finalOutputTokens,
+        cacheReadTokens: finalCacheTokens,
         reasoningTokens,
         executionTimeMs,
+        usedCumulative: hasCumulativeUsage,
+        rawUsage: { input: usage?.inputTokens, output: usage?.outputTokens },
         inputTokenDetails: JSON.stringify(usage?.inputTokenDetails),
       });
 
       send({
         type: 'usage',
         usage: {
-          promptTokens: usage?.inputTokens,
-          completionTokens: usage?.outputTokens,
-          cachedContentTokenCount: cacheReadTokens,
+          promptTokens: finalInputTokens,
+          completionTokens: finalOutputTokens,
+          cachedContentTokenCount: finalCacheTokens,
           reasoningTokens,
         },
         executionTimeMs,

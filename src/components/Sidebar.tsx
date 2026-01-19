@@ -17,6 +17,12 @@ interface SidebarProps {
   skillsLoading: boolean;
   onDeleteSkill: (name: string) => void;
   onSelectSkill: (name: string) => void;
+  // Comparison mode props
+  isComparisonMode?: boolean;
+  selectedForComparison?: string | null;
+  onSelectForComparison?: (id: string | null) => void;
+  onAddToLeft?: (id: string) => void;
+  onAddToRight?: (id: string) => void;
 }
 
 // Collapsible Section Component
@@ -69,12 +75,18 @@ function ConversationItem({
   onSelect,
   onDelete,
   onRename,
+  isComparisonMode,
+  isSelectedForComparison,
+  onSelectForComparison,
 }: {
   conversation: Conversation;
   isActive: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onRename: (title: string) => void;
+  isComparisonMode?: boolean;
+  isSelectedForComparison?: boolean;
+  onSelectForComparison?: () => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(conversation.title);
@@ -103,15 +115,34 @@ function ConversationItem({
     }
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('text/conversation-id', conversation.id);
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isComparisonMode && onSelectForComparison) {
+      e.stopPropagation();
+      onSelectForComparison();
+    } else {
+      onSelect();
+    }
+  };
+
   return (
     <div
       className={`group relative flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-        isActive
-          ? 'bg-zinc-700'
-          : 'hover:bg-zinc-800'
-      }`}
-      onClick={onSelect}
+        isSelectedForComparison
+          ? 'bg-blue-600/30 border border-blue-500'
+          : isActive
+            ? 'bg-zinc-700'
+            : 'hover:bg-zinc-800'
+      } ${isComparisonMode ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      draggable={isComparisonMode}
+      onDragStart={handleDragStart}
+      data-conversation-id={conversation.id}
     >
       {/* Chat icon */}
       <svg
@@ -240,6 +271,9 @@ function ConversationGroup({
   onSelect,
   onDelete,
   onRename,
+  isComparisonMode,
+  selectedForComparison,
+  onSelectForComparison,
 }: {
   title: string;
   conversations: Conversation[];
@@ -247,6 +281,9 @@ function ConversationGroup({
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onRename: (id: string, title: string) => void;
+  isComparisonMode?: boolean;
+  selectedForComparison?: string | null;
+  onSelectForComparison?: (id: string | null) => void;
 }) {
   if (conversations.length === 0) return null;
 
@@ -264,6 +301,13 @@ function ConversationGroup({
             onSelect={() => onSelect(conv.id)}
             onDelete={() => onDelete(conv.id)}
             onRename={(newTitle) => onRename(conv.id, newTitle)}
+            isComparisonMode={isComparisonMode}
+            isSelectedForComparison={selectedForComparison === conv.id}
+            onSelectForComparison={() => {
+              if (onSelectForComparison) {
+                onSelectForComparison(selectedForComparison === conv.id ? null : conv.id);
+              }
+            }}
           />
         ))}
       </div>
@@ -431,6 +475,11 @@ export function Sidebar({
   skillsLoading,
   onDeleteSkill,
   onSelectSkill,
+  isComparisonMode,
+  selectedForComparison,
+  onSelectForComparison,
+  onAddToLeft,
+  onAddToRight,
 }: SidebarProps) {
   // Count total conversations
   const totalConversations =
@@ -504,6 +553,32 @@ export function Sidebar({
             </button>
           </div>
 
+          {/* Comparison mode action buttons */}
+          {isComparisonMode && selectedForComparison && (
+            <div className="px-3 mb-2 flex gap-2">
+              <button
+                onClick={() => onAddToLeft?.(selectedForComparison)}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30 transition-colors"
+                data-testid="add-to-left"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14V5" />
+                </svg>
+                Add to Left
+              </button>
+              <button
+                onClick={() => onAddToRight?.(selectedForComparison)}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 transition-colors"
+                data-testid="add-to-right"
+              >
+                Add to Right
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5v14" />
+                </svg>
+              </button>
+            </div>
+          )}
+
           {/* Chat History Section (grows down, takes remaining space) */}
           <CollapsibleSection
             title="Chat History"
@@ -518,6 +593,9 @@ export function Sidebar({
                 onSelect={onSelect}
                 onDelete={onDelete}
                 onRename={onRename}
+                isComparisonMode={isComparisonMode}
+                selectedForComparison={selectedForComparison}
+                onSelectForComparison={onSelectForComparison}
               />
               <ConversationGroup
                 title="Yesterday"
@@ -526,6 +604,9 @@ export function Sidebar({
                 onSelect={onSelect}
                 onDelete={onDelete}
                 onRename={onRename}
+                isComparisonMode={isComparisonMode}
+                selectedForComparison={selectedForComparison}
+                onSelectForComparison={onSelectForComparison}
               />
               <ConversationGroup
                 title="Last 7 days"
@@ -534,6 +615,9 @@ export function Sidebar({
                 onSelect={onSelect}
                 onDelete={onDelete}
                 onRename={onRename}
+                isComparisonMode={isComparisonMode}
+                selectedForComparison={selectedForComparison}
+                onSelectForComparison={onSelectForComparison}
               />
               <ConversationGroup
                 title="Last 30 days"
@@ -542,6 +626,9 @@ export function Sidebar({
                 onSelect={onSelect}
                 onDelete={onDelete}
                 onRename={onRename}
+                isComparisonMode={isComparisonMode}
+                selectedForComparison={selectedForComparison}
+                onSelectForComparison={onSelectForComparison}
               />
               <ConversationGroup
                 title="Older"
@@ -550,6 +637,9 @@ export function Sidebar({
                 onSelect={onSelect}
                 onDelete={onDelete}
                 onRename={onRename}
+                isComparisonMode={isComparisonMode}
+                selectedForComparison={selectedForComparison}
+                onSelectForComparison={onSelectForComparison}
               />
             </div>
           </CollapsibleSection>

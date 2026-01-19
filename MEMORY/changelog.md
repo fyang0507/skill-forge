@@ -2,6 +2,12 @@
 
 Last Updated: 2026-01-19
 
+## 2026-01-19: Demo Comparison Mode + Token Fix
+
+- **Comparison mode UI**: 3-pane layout (left/right conversation panes + middle skills showcase) with Normal↔Comparison toggle, drag-and-drop from sidebar, click-to-select with "Add to Left/Right" buttons, and MetricsBar showing time/token savings
+- **Multi-step token counting fix**: Agent route now accumulates usage from `step-finish` events for accurate totals across multi-turn tool-calling flows (was only capturing final step before)
+- **CSS overflow fixes**: ChatMessage tool/shell parts now use `min-w-0 flex-1 truncate` for proper flexbox containment; user messages use `word-break: break-word` + `overflow-wrap: anywhere`
+
 ## 2026-01-19: Agent stopWhen Termination Fix
 
 - **Built-in multi-step**: Replaced manual while-loop in `route.ts` with agent's native `stopWhen` condition - agents now handle multi-step execution internally

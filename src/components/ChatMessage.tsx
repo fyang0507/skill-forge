@@ -104,17 +104,17 @@ function ToolPart({ part }: { part: MessagePart }) {
   const config = statusConfig[status];
 
   return (
-    <div className="my-2">
+    <div className="my-2 w-full min-w-0 overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-300 transition-colors"
+        className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-300 transition-colors w-full min-w-0 text-left overflow-hidden"
       >
         <ChevronIcon expanded={expanded} />
-        <div className={`w-2 h-2 rounded-full ${config.color} ${config.animate ? 'animate-pulse' : ''}`} />
-        <span className="font-mono text-zinc-400 truncate max-w-[400px]">
+        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${config.color} ${config.animate ? 'animate-pulse' : ''}`} />
+        <span className="font-mono text-zinc-400 truncate flex-1 min-w-0">
           $ {part.command}
         </span>
-        {config.label && <span className="text-zinc-500 italic">{config.label}</span>}
+        {config.label && <span className="text-zinc-500 italic flex-shrink-0">{config.label}</span>}
       </button>
       {expanded && (
         <div className="mt-1 ml-5 text-xs bg-zinc-900 rounded p-2 max-h-[200px] overflow-y-auto">
@@ -165,30 +165,28 @@ function AgentToolPart({ part }: { part: MessagePart }) {
     : shellCommand;
 
   return (
-    <div className="my-2">
+    <div className="my-2 w-full min-w-0 overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-300 transition-colors"
+        className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-300 transition-colors w-full min-w-0 text-left overflow-hidden"
       >
         <ChevronIcon expanded={expanded} />
-        <div className={`w-2 h-2 rounded-full ${dotColor} ${isLoading ? 'animate-pulse' : ''}`} />
+        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor} ${isLoading ? 'animate-pulse' : ''}`} />
         {isShellCommand ? (
-          <>
-            <span className="font-mono text-zinc-400 truncate max-w-[400px]">
-              $ {truncatedCommand}
-            </span>
-          </>
+          <span className="font-mono text-zinc-400 truncate flex-1 min-w-0">
+            $ {truncatedCommand}
+          </span>
         ) : (
           <>
-            <span className="font-medium">{toolDisplayName}</span>
+            <span className="font-medium flex-shrink-0">{toolDisplayName}</span>
             {toolDetail && (
-              <span className="text-zinc-500 truncate max-w-[250px]">{String(toolDetail)}</span>
+              <span className="text-zinc-500 truncate flex-1 min-w-0">{String(toolDetail)}</span>
             )}
           </>
         )}
-        {isLoading && <span className="text-zinc-500 italic">{loadingText}</span>}
+        {isLoading && <span className="text-zinc-500 italic flex-shrink-0">{loadingText}</span>}
         {!isLoading && sources.length > 0 && (
-          <span className="text-zinc-500">{sources.length} sources</span>
+          <span className="text-zinc-500 flex-shrink-0">{sources.length} sources</span>
         )}
       </button>
       {expanded && (
@@ -352,9 +350,9 @@ export default function ChatMessage({ message, onCodifySkill, isCodifying }: Cha
   if (message.role === 'user') {
     const textContent = message.parts[0]?.content || '';
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[80%] px-4 py-3 bg-blue-600 text-white rounded-2xl rounded-br-md">
-          <p className="whitespace-pre-wrap break-all">{textContent}</p>
+      <div className="flex justify-end w-full min-w-0 max-w-full">
+        <div className="max-w-[80%] min-w-0 px-4 py-3 bg-blue-600 text-white rounded-2xl rounded-br-md overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+          <p className="whitespace-pre-wrap break-words">{textContent}</p>
         </div>
       </div>
     );
@@ -367,8 +365,8 @@ export default function ChatMessage({ message, onCodifySkill, isCodifying }: Cha
   const skillSuggestion = parseToolSkillSuggestion(message.parts);
 
   return (
-    <div className="flex justify-start">
-      <div className="max-w-[90%] px-4 py-3 bg-zinc-800 text-zinc-100 rounded-2xl rounded-bl-md">
+    <div className="flex justify-start w-full min-w-0">
+      <div className="max-w-[90%] min-w-0 px-4 py-3 bg-zinc-800 text-zinc-100 rounded-2xl rounded-bl-md overflow-hidden">
         {hasParts ? (
           <>
             {message.parts.map((part, index) => {
