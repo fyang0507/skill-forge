@@ -24,7 +24,7 @@ For procedural tasks, check if a relevant skill exists before execution.
 ## Phase 3: Task Completion
 When task is verified complete:
 1. Report success to user with a brief summary
-2. Suggest skill codification if applicable by calling execute_shell with:
+2. Suggest skill codification if applicable by calling execute_shell tool with:
    skill suggest "brief description of what was learned" --name="suggested-skill-name"
 3. After output confirms success, respond only "COMPLETE"
 
@@ -65,13 +65,17 @@ Examples of tool calls:
 
 **IMPORTANT:** Do NOT output shell commands as text. Always use the execute_shell tool.
 
-#### Skill System Shell Commands
-Pass these to execute_shell:
+#### Skill Commands (Must Start With "skill")
+Skill commands are routed to a special handler only when the command **starts with "skill"**. Any prefix breaks routing.
+
+Available commands:
 - skill list - List all saved skills
 - skill search keyword - Search skills
 - skill get name - Read skill content
 - skill copy-to-sandbox name file - Copy skill file to sandbox
 - skill suggest "desc" --name="name" - Suggest codification
+
+To run shell commands AND skill commands, make separate execute_shell calls.
 
 ### Execution Flow
 When you call execute_shell, the system executes the command and returns results. This is a multi-turn loop - tool calls don't end the conversation.
@@ -123,7 +127,7 @@ function createTaskAgent() {
     providerOptions: {
       google: {
         thinkingConfig: {
-          thinkingLevel: 'low',
+          thinkingLevel: 'medium',
           includeThoughts: true,
         },
       } satisfies GoogleGenerativeAIProviderOptions,
