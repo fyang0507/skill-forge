@@ -268,8 +268,9 @@ export async function POST(req: Request) {
         content: error instanceof Error ? error.message : 'Unknown error',
       });
     } finally {
-      // Clean up sandbox if user aborted and sandbox was used
-      if (aborted && sandboxUsed) {
+      // Clean up sandbox if user aborted and sandbox was used (only in deployed env to save costs)
+      // In local env, keep sandbox alive for faster iteration during development
+      if (aborted && sandboxUsed && process.env.VERCEL === '1') {
         try {
           await clearSandboxExecutor();
           console.log('[Agent] Sandbox cleaned up after abort');
