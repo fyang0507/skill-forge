@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
 import { executeCommand } from '../../tools/command-executor';
 import { configureStorage } from '../storage';
-import { clearSandboxExecutor } from '../../sandbox/executor';
+import { clearSandboxExecutor, configureSandbox } from '../../sandbox/executor';
 
 // Use isolated test directories to avoid wiping production data
 const TEST_SKILLS_DIR = '.skills-test';
@@ -14,6 +14,8 @@ describe('Skill Commands Integration', () => {
   beforeEach(async () => {
     // Configure storage to use isolated test directory
     configureStorage({ skillsDir: TEST_SKILLS_DIR });
+    // Configure sandbox to use isolated test directory
+    configureSandbox({ sandboxRoot: TEST_SANDBOX_ROOT });
     // Clear cached sandbox executor
     await clearSandboxExecutor();
     // Clean up test directories

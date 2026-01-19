@@ -14,9 +14,9 @@ export class LocalSandboxExecutor implements SandboxExecutor {
   private sandboxId: string;
   private isDead: boolean = false;
 
-  constructor(sandboxId: string = 'default') {
+  constructor(sandboxId: string = 'default', sandboxRoot: string = '.sandbox') {
     this.sandboxId = sandboxId;
-    this.sandboxDir = path.join('.sandbox', sandboxId);
+    this.sandboxDir = path.join(sandboxRoot, sandboxId);
   }
 
   getSandboxId(): string | null {

@@ -1,16 +1,7 @@
 import { getStorage } from '../skills/storage';
-import { getSandboxExecutor, type SandboxExecutor } from '../sandbox/executor';
+import { getSandboxExecutor } from '../sandbox/executor';
 
 export type CommandHandler = (args: string) => string | Promise<string>;
-
-let cachedExecutor: SandboxExecutor | null = null;
-
-async function getExecutor(): Promise<SandboxExecutor> {
-  if (!cachedExecutor) {
-    cachedExecutor = await getSandboxExecutor();
-  }
-  return cachedExecutor;
-}
 
 const skillCommands: Record<string, CommandHandler> = {
   'help': () => `Skill commands:
@@ -83,7 +74,7 @@ const skillCommands: Record<string, CommandHandler> = {
     const content = await storage.getFile(skillName, filename);
     if (!content) return `File "${filename}" not found in skill "${skillName}"`;
 
-    const executor = await getExecutor();
+    const executor = await getSandboxExecutor();
     await executor.writeFile(filename, content);
     return `Copied to sandbox: ${filename}`;
   },
@@ -94,7 +85,7 @@ const skillCommands: Record<string, CommandHandler> = {
     if (!match) return 'Usage: skill add-file <filename> <skill-name>';
     const [, filename, skillName] = match;
 
-    const executor = await getExecutor();
+    const executor = await getSandboxExecutor();
     const content = await executor.readFile(filename);
     if (!content) {
       return `File "${filename}" not found in sandbox`;

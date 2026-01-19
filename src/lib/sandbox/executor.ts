@@ -53,6 +53,24 @@ export interface SandboxExecutor {
 }
 
 let cachedExecutor: SandboxExecutor | null = null;
+let sandboxRootDir: string = '.sandbox';
+
+/**
+ * Configure the sandbox root directory. Must be called before getSandboxExecutor().
+ * Primarily used for testing to isolate sandbox from production data.
+ */
+export function configureSandbox(options: { sandboxRoot?: string }): void {
+  if (options.sandboxRoot !== undefined) {
+    sandboxRootDir = options.sandboxRoot;
+  }
+}
+
+/**
+ * Get the configured sandbox root directory.
+ */
+export function getSandboxRoot(): string {
+  return sandboxRootDir;
+}
 
 /**
  * Get the appropriate sandbox executor for the current environment.
@@ -67,7 +85,7 @@ export async function getSandboxExecutor(sandboxId?: string): Promise<SandboxExe
       cachedExecutor = new VercelSandboxExecutor(undefined, sandboxId);
     } else {
       const { LocalSandboxExecutor } = await import('./local-executor');
-      cachedExecutor = new LocalSandboxExecutor(sandboxId);
+      cachedExecutor = new LocalSandboxExecutor(sandboxId, sandboxRootDir);
     }
     return cachedExecutor;
   }
@@ -81,7 +99,7 @@ export async function getSandboxExecutor(sandboxId?: string): Promise<SandboxExe
     cachedExecutor = new VercelSandboxExecutor();
   } else {
     const { LocalSandboxExecutor } = await import('./local-executor');
-    cachedExecutor = new LocalSandboxExecutor();
+    cachedExecutor = new LocalSandboxExecutor('default', sandboxRootDir);
   }
 
   return cachedExecutor;
