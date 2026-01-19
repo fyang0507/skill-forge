@@ -29,12 +29,6 @@ describe('LocalSandboxExecutor', () => {
       expect(result.stdout).toBe('hello world');
     });
 
-    it('should reject disallowed commands', async () => {
-      const result = await executor.execute('wget http://example.com');
-      expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('not allowed');
-    });
-
     it('should handle command without args', async () => {
       const result = await executor.execute('pwd');
       expect(result.exitCode).toBe(0);

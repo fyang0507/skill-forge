@@ -9,35 +9,6 @@ const execAsync = promisify(exec);
 
 const MAX_BUFFER = 1024 * 1024; // 1MB
 
-const ALLOWED_COMMANDS = [
-  'sh',
-  'curl',
-  'cat',
-  'ls',
-  'head',
-  'tail',
-  'find',
-  'tree',
-  'jq',
-  'grep',
-  'export',
-  'source',
-  'python',
-  'python3',
-  'pip',
-  'pip3',
-  'cd',
-  'rm',
-  'mv',
-  'cp',
-  'echo',
-  'touch',
-  'mkdir',
-  'rmdir',
-  'pwd',
-  'sleep',
-];
-
 export class LocalSandboxExecutor implements SandboxExecutor {
   private sandboxDir: string;
   private sandboxId: string;
@@ -68,16 +39,6 @@ export class LocalSandboxExecutor implements SandboxExecutor {
 
     // Ensure sandbox directory exists
     await fs.mkdir(this.sandboxDir, { recursive: true });
-
-    const [cmd] = command.trim().split(/\s+/);
-
-    if (!ALLOWED_COMMANDS.includes(cmd)) {
-      return {
-        stdout: '',
-        stderr: `Command "${cmd}" not allowed. Allowed: ${ALLOWED_COMMANDS.join(', ')}`,
-        exitCode: 1,
-      };
-    }
 
     try {
       const { stdout, stderr } = await execAsync(command, {
