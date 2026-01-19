@@ -42,6 +42,8 @@ executeCommand() [command-executor.ts]
 **Runner:** Vitest (`pnpm test`)
 **Coverage:** Unit tests for storage, sandbox executors, and command execution.
 
+**UI Verification:** Use Chrome DevTools MCP to verify non-trivial frontend changes. Take snapshots/screenshots to confirm visual and functional correctness before considering UI work complete.
+
 ## Playground Tasks
 
 Attached 4 tasks for testing/demo purposes in `playground/`
