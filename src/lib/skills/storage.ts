@@ -34,6 +34,7 @@ export interface SkillStorage {
 }
 
 let storageInstance: SkillStorage | null = null;
+let storageConfig: { skillsDir?: string } = {};
 
 export function getStorage(): SkillStorage {
   if (storageInstance) return storageInstance;
@@ -42,10 +43,16 @@ export function getStorage(): SkillStorage {
   if (process.env.VERCEL === '1') {
     storageInstance = new CloudStorage();
   } else {
-    storageInstance = new LocalStorage();
+    storageInstance = new LocalStorage(storageConfig.skillsDir);
   }
 
   return storageInstance;
+}
+
+// Configure storage options (for testing with isolated directories)
+export function configureStorage(config: { skillsDir?: string }): void {
+  storageConfig = config;
+  resetStorage(); // Clear so next getStorage() uses new config
 }
 
 // Reset storage instance (useful for testing)

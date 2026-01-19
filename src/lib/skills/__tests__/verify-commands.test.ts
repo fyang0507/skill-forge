@@ -1,18 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
 import { executeCommand } from '../../tools/command-executor';
-import { resetStorage } from '../storage';
+import { configureStorage } from '../storage';
 import { clearSandboxExecutor } from '../../sandbox/executor';
 
-const TEST_SKILLS_DIR = '.skills';
+// Use isolated test directories to avoid wiping production data
+const TEST_SKILLS_DIR = '.skills-test';
 // LocalSandboxExecutor uses .sandbox/{sandboxId}, default sandboxId is 'default'
-const TEST_SANDBOX_DIR = '.sandbox/default';
-const TEST_SANDBOX_ROOT = '.sandbox';
+const TEST_SANDBOX_DIR = '.sandbox-test/default';
+const TEST_SANDBOX_ROOT = '.sandbox-test';
 
 describe('Skill Commands Integration', () => {
   beforeEach(async () => {
-    // Reset storage instance to use fresh LocalStorage
-    resetStorage();
+    // Configure storage to use isolated test directory
+    configureStorage({ skillsDir: TEST_SKILLS_DIR });
     // Clear cached sandbox executor
     await clearSandboxExecutor();
     // Clean up test directories
