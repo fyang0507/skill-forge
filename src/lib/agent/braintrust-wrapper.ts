@@ -38,7 +38,7 @@ export function getWrappedAI() {
 
 export function getAgent() {
   const sdk = initBraintrust();
-  return (sdk as any).Experimental_Agent;
+  return (sdk as typeof ai & { Experimental_Agent?: unknown }).Experimental_Agent;
 }
 
 export function getGenerateText() {
