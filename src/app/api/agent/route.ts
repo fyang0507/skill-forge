@@ -115,13 +115,13 @@ export async function POST(req: Request) {
     await runWithRequestContext({ conversationId, sandboxId: currentSandboxId, env: mergedEnv }, async () => {
     try {
       // For codify-skill mode: build transcript from history, create agent with closure
-      // The skill agent gets a blank context and calls get-processed-transcript tool
+      // The skill agent gets a blank context and calls get_processed_transcript tool
       let agent;
       let messages: APIMessage[];
 
       if (mode === 'codify-skill') {
         agent = skillAgent;
-        // Minimal trigger message - agent instructions tell it to call get-processed-transcript first
+        // Minimal trigger message - agent instructions tell it to call get_processed_transcript first
         messages = [{ role: 'user', content: 'Start' }];
       } else {
         agent = taskAgent;
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
       const modelMessages = toModelMessages(messages);
 
       // Track cumulative usage across all steps (for multi-step agentic flows)
-      let cumulativeUsage = {
+      const cumulativeUsage = {
         inputTokens: 0,
         outputTokens: 0,
         cacheReadTokens: 0,
@@ -162,8 +162,12 @@ export async function POST(req: Request) {
           case 'tool-call': {
             // AI SDK uses 'input' instead of 'args' for tool arguments
             const toolInput = (part as { input?: Record<string, unknown> }).input;
-            // Track sandbox usage for execute_shell
-            if (part.toolName === 'execute_shell') {
+            // Normalize tool name (strip erroneous prefixes like "google:")
+            const normalizedToolName = part.toolName.includes(':')
+              ? part.toolName.split(':').pop()!
+              : part.toolName;
+            // Track sandbox usage for shell tool
+            if (normalizedToolName === 'shell') {
               const command = (toolInput as { command?: string })?.command;
               if (command && !command.startsWith('skill ')) {
                 sandboxUsed = true;
@@ -179,7 +183,7 @@ export async function POST(req: Request) {
             }
             send({
               type: 'agent-tool-call',
-              toolName: part.toolName,
+              toolName: normalizedToolName,
               toolArgs: toolInput,
               toolCallId: part.toolCallId,
             });

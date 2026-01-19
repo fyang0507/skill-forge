@@ -26,9 +26,9 @@ function parseToolSkillSuggestion(parts: MessagePart[]): SkillSuggestion | null 
   for (const part of parts) {
     // Check legacy 'tool' type parts
     const isLegacySkillSuggest = part.type === 'tool' && part.command?.startsWith('skill suggest');
-    // Check new 'agent-tool' type parts (AI SDK execute_shell tool)
+    // Check new 'agent-tool' type parts (AI SDK shell tool)
     const isAgentSkillSuggest = part.type === 'agent-tool' &&
-      part.toolName === 'execute_shell' &&
+      part.toolName === 'shell' &&
       (part.toolArgs?.command as string)?.startsWith('skill suggest');
 
     if (isLegacySkillSuggest || isAgentSkillSuggest) {
@@ -127,15 +127,15 @@ function ToolPart({ part }: { part: MessagePart }) {
   );
 }
 
-// Render agent tool call (google_search, url_context, get-processed-transcript) - collapsible
+// Render agent tool call (google_search, url_context, get_processed_transcript) - collapsible
 function AgentToolPart({ part }: { part: MessagePart }) {
   const [expanded, setExpanded] = useState(false);
 
   // Tool names may have namespace prefix like "google_search:google_search"
   const toolName = part.toolName || '';
   const isGoogleSearch = toolName.includes('google_search');
-  const isTranscript = toolName.includes('get-processed-transcript');
-  const isShellCommand = toolName === 'execute_shell';
+  const isTranscript = toolName.includes('get_processed_transcript');
+  const isShellCommand = toolName === 'shell';
   const toolDisplayName = isGoogleSearch
     ? 'Google Search'
     : toolName.includes('url_context')
