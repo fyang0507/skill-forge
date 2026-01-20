@@ -17,6 +17,8 @@ const EXAMPLE_PROMPTS = [
   'Search for skills about React hooks',
 ];
 
+const LLM_API_KEY_STORAGE = 'skillforge_llm_api_key';
+
 // Full skill data for the detail view
 interface SkillDetail {
   name: string;
@@ -174,6 +176,20 @@ export default function ForgeDemo() {
     inputRef.current?.focus();
   }, []);
 
+  // Load LLM API key from sessionStorage (set during onboarding, clears on tab close)
+  useEffect(() => {
+    const savedKey = sessionStorage.getItem(LLM_API_KEY_STORAGE);
+    if (savedKey) {
+      setEnvVars((prev) => {
+        // Don't add if already exists
+        if (prev.some((v) => v.key === 'GOOGLE_GENERATIVE_AI_API_KEY')) {
+          return prev;
+        }
+        return [...prev, { key: 'GOOGLE_GENERATIVE_AI_API_KEY', value: savedKey }];
+      });
+    }
+  }, []);
+
   // Auto-resize textarea based on content
   useEffect(() => {
     const textarea = inputRef.current;
@@ -196,7 +212,7 @@ export default function ForgeDemo() {
       currentIdRef.current = id;
       setCurrentId(id);
       setCurrentMode(result.conversation.mode || 'task');
-      router.push(`/?id=${id}`, { scroll: false });
+      router.push(`/task?id=${id}`, { scroll: false });
     }
     isSwitchingRef.current = false;
   }, [switchConversation, setCurrentId, router]);
@@ -231,7 +247,7 @@ export default function ForgeDemo() {
     currentIdRef.current = conv.id;
     setCurrentId(conv.id);
     setCurrentMode('task');
-    router.push(`/?id=${conv.id}`, { scroll: false });
+    router.push(`/task?id=${conv.id}`, { scroll: false });
     inputRef.current?.focus();
     isSwitchingRef.current = false;
   }, [conversations, createConversation, clearMessages, setCurrentId, router, handleSelectConversation]);
@@ -265,7 +281,7 @@ export default function ForgeDemo() {
         clearMessages();
         setCurrentId(null);
         setCurrentMode('task');
-        router.push('/', { scroll: false });
+        router.push('/task', { scroll: false });
       }
     }
   }, [conversations, deleteConversation, currentId, handleNewChat, handleSelectConversation, clearMessages, setCurrentId, router]);
@@ -293,7 +309,7 @@ export default function ForgeDemo() {
       const conv = await createConversation('New conversation');
       currentIdRef.current = conv.id; // Update ref immediately for callbacks
       setCurrentId(conv.id);
-      router.push(`/?id=${conv.id}`, { scroll: false });
+      router.push(`/task?id=${conv.id}`, { scroll: false });
     }
 
     const message = input;
@@ -492,6 +508,18 @@ export default function ForgeDemo() {
             {/* Messages area */}
             <div className="flex-1 overflow-y-auto">
               <div className="max-w-4xl mx-auto px-6 py-6">
+                {/* Error banner */}
+                {error && (
+                  <div className="mb-4 p-4 bg-red-900/60 border border-red-700 rounded-lg flex items-start gap-3">
+                    <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-red-200 font-medium">Error</p>
+                      <p className="text-red-300 text-sm mt-1">{error}</p>
+                    </div>
+                  </div>
+                )}
                 {messages.length === 0 ? (
                   // Empty state
                   <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
@@ -538,13 +566,6 @@ export default function ForgeDemo() {
                         isCodifying={codifyingMessageId === message.id}
                       />
                     ))}
-                    {error && (
-                      <div className="flex justify-center">
-                        <div className="px-4 py-2 bg-red-900/50 border border-red-800 rounded-lg text-red-200 text-sm">
-                          Error: {error}
-                        </div>
-                      </div>
-                    )}
                     <div ref={messagesEndRef} />
                   </div>
                 )}

@@ -148,10 +148,10 @@ const hasCompleteSignal: StopCondition<typeof skillAgentTools> = ({ steps }) => 
 };
 
 /**
- * Creates the Skill Agent singleton.
+ * Factory function - creates a fresh agent per request to use request-scoped API key.
  * The agent uses a tool that fetches the transcript from DB by conversation ID.
  */
-function createSkillAgent() {
+export function createSkillAgent() {
   const Agent = getAgent();
   return new Agent({
     model: getFlashModel(),
@@ -168,6 +168,3 @@ function createSkillAgent() {
     },
   });
 }
-
-// Module-level instantiation - created once when module loads
-export const skillAgent = createSkillAgent();

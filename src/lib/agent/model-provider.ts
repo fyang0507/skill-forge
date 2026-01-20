@@ -1,5 +1,6 @@
 import { google as defaultGoogle, createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { GoogleGenerativeAIProvider } from '@ai-sdk/google';
+import { getRequestContext } from './request-context';
 
 const MODEL_NAMES = {
   gateway: {
@@ -22,6 +23,18 @@ interface ProviderConfig {
 let cachedConfig: ProviderConfig | null = null;
 
 function getConfig(): ProviderConfig {
+  // Check for per-request API key override (from UI onboarding)
+  const { env } = getRequestContext();
+  const requestApiKey = env?.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (requestApiKey) {
+    // Create fresh provider for this request (don't cache user-provided keys)
+    return {
+      provider: createGoogleGenerativeAI({ apiKey: requestApiKey }),
+      mode: 'direct',
+    };
+  }
+
+  // Fall back to cached config from environment
   if (cachedConfig) return cachedConfig;
 
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {

@@ -101,7 +101,8 @@ const hasCompleteSignal: StopCondition<typeof taskAgentTools> = ({ steps }) => {
   return steps.some(step => step.text?.trim().endsWith('COMPLETE')) ?? false;
 };
 
-function createTaskAgent() {
+// Factory function - creates a fresh agent per request to use request-scoped API key
+export function createTaskAgent() {
   const Agent = getAgent();
   return new Agent({
     model: getFlashModel(),
@@ -119,6 +120,3 @@ function createTaskAgent() {
     temperature: 0.05,
   });
 }
-
-// Module-level instantiation - created once when module loads
-export const taskAgent = createTaskAgent();

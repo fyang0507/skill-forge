@@ -1,5 +1,5 @@
-import { taskAgent } from '@/lib/agent/task-agent';
-import { skillAgent } from '@/lib/agent/skill-agent';
+import { createTaskAgent } from '@/lib/agent/task-agent';
+import { createSkillAgent } from '@/lib/agent/skill-agent';
 import { toModelMessages, type APIMessage } from '@/lib/messages/transform';
 import { clearSandboxExecutor, getSandboxExecutor } from '@/lib/sandbox/executor';
 import { mergePlaygroundEnv } from '@/lib/tools/playground-env';
@@ -122,15 +122,16 @@ export async function POST(req: Request) {
     try {
       // For codify-skill mode: build transcript from history, create agent with closure
       // The skill agent gets a blank context and calls get_processed_transcript tool
+      // Create agent per-request INSIDE request context so it picks up user-provided API key
       let agent;
       let messages: APIMessage[];
 
       if (mode === 'codify-skill') {
-        agent = skillAgent;
+        agent = createSkillAgent();
         // Minimal trigger message - agent instructions tell it to call get_processed_transcript first
         messages = [{ role: 'user', content: 'Start' }];
       } else {
-        agent = taskAgent;
+        agent = createTaskAgent();
         messages = [...initialMessages];
       }
 
@@ -229,6 +230,22 @@ export async function POST(req: Request) {
             });
             break;
           }
+          case 'error': {
+            // AI SDK stream error - extract meaningful message and send to client
+            const errorPart = part as { error?: { message?: string; responseBody?: string; data?: { error?: { message?: string } } } };
+            let errorMessage = 'An error occurred';
+            if (errorPart.error) {
+              // Try to get message from nested data.error.message (API errors)
+              if (errorPart.error.data?.error?.message) {
+                errorMessage = errorPart.error.data.error.message;
+              } else if (errorPart.error.message) {
+                errorMessage = errorPart.error.message;
+              }
+            }
+            console.error('[Agent] Stream error:', errorPart.error);
+            send({ type: 'error', content: errorMessage });
+            break;
+          }
           default: {
             // Handle step-finish events (not in TypeScript types but emitted by AI SDK)
             const eventType = (part as { type: string }).type;
@@ -278,9 +295,27 @@ export async function POST(req: Request) {
 
       send({ type: 'done' });
     } catch (error) {
+      // Extract meaningful error message from various error types
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Check for nested error details (common in AI SDK errors)
+        const anyError = error as unknown as Record<string, unknown>;
+        if (anyError.cause && typeof anyError.cause === 'object') {
+          const cause = anyError.cause as Record<string, unknown>;
+          if (cause.message) {
+            errorMessage = `${error.message}: ${cause.message}`;
+          }
+        }
+        // Check for response body in API errors
+        if (anyError.responseBody) {
+          errorMessage = `${error.message} - ${JSON.stringify(anyError.responseBody)}`;
+        }
+      }
+      console.error('[Agent] Error during streaming:', error);
       send({
         type: 'error',
-        content: error instanceof Error ? error.message : 'Unknown error',
+        content: errorMessage,
       });
     } finally {
       // Clean up sandbox if user aborted and sandbox was used (only in deployed env to save costs)

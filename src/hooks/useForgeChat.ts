@@ -252,6 +252,7 @@ export function useForgeChat(options?: UseForgeChatOptions) {
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let receivedDone = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -478,6 +479,7 @@ export function useForgeChat(options?: UseForgeChatOptions) {
                   return prev;
                 });
 
+                receivedDone = true;
                 setStatus('ready');
                 break;
               }
@@ -504,7 +506,11 @@ export function useForgeChat(options?: UseForgeChatOptions) {
         }
       }
 
-      setStatus('ready');
+      // If stream ended without 'done' event, treat as error
+      if (!receivedDone) {
+        setError('Connection closed unexpectedly. The API may have returned an error.');
+        setStatus('error');
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         setStatus('ready');
