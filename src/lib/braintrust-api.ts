@@ -9,6 +9,7 @@ export interface TraceStats {
   promptTokens: number;
   completionTokens: number;
   cachedTokens: number;
+  reasoningTokens: number;
 }
 
 interface BTQLResponse {
@@ -16,6 +17,7 @@ interface BTQLResponse {
     prompt_tokens: number;
     completion_tokens: number;
     cached_tokens: number;
+    reasoning_tokens: number;
   }>;
 }
 
@@ -88,7 +90,8 @@ export async function fetchTraceStats(rootSpanId: string): Promise<TraceStats | 
       SELECT
         COALESCE(metrics.prompt_tokens, 0) as prompt_tokens,
         COALESCE(metrics.completion_tokens, 0) as completion_tokens,
-        COALESCE(metrics.prompt_cached_tokens, 0) as cached_tokens
+        COALESCE(metrics.prompt_cached_tokens, 0) as cached_tokens,
+        COALESCE(metrics.completion_reasoning_tokens, 0) as reasoning_tokens
       FROM project_logs('${projectId}', shape => 'spans')
       WHERE root_span_id = '${rootSpanId}'
       ORDER BY (COALESCE(metrics.prompt_tokens, 0) + COALESCE(metrics.completion_tokens, 0)) DESC
@@ -121,6 +124,7 @@ export async function fetchTraceStats(rootSpanId: string): Promise<TraceStats | 
       promptTokens: row.prompt_tokens ?? 0,
       completionTokens: row.completion_tokens ?? 0,
       cachedTokens: row.cached_tokens ?? 0,
+      reasoningTokens: row.reasoning_tokens ?? 0,
     };
   } catch (error) {
     console.error('[Braintrust] Failed to fetch stats:', error);

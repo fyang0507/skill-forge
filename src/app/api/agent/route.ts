@@ -267,6 +267,7 @@ export async function POST(req: Request) {
           promptTokens: braintrustStats.promptTokens,
           completionTokens: braintrustStats.completionTokens,
           cachedContentTokenCount: braintrustStats.cachedTokens,
+          reasoningTokens: braintrustStats.reasoningTokens,
         } : null,
         executionTimeMs,
         agent: mode === 'codify-skill' ? 'skill' : 'task',
