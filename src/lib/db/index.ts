@@ -38,10 +38,6 @@ export interface Conversation {
 export async function initDb(): Promise<void> {
   const client = getDb();
 
-  // DEV: Drop tables to recreate with new schema (raw_payload column)
-  await client.execute(`DROP TABLE IF EXISTS messages`);
-  await client.execute(`DROP TABLE IF EXISTS conversations`);
-
   await client.execute(`
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
