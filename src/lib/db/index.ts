@@ -23,6 +23,7 @@ export interface DbMessage {
   timestamp: number;
   sequence_order: number;
   agent: 'task' | 'skill';  // Which agent generated this message
+  raw_payload: string | null;  // JSON: Raw stream parts from agent.stream() for debugging
 }
 
 export interface Conversation {
@@ -37,6 +38,10 @@ export interface Conversation {
 export async function initDb(): Promise<void> {
   const client = getDb();
 
+  // DEV: Drop tables to recreate with new schema (raw_payload column)
+  await client.execute(`DROP TABLE IF EXISTS messages`);
+  await client.execute(`DROP TABLE IF EXISTS conversations`);
+
   await client.execute(`
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
@@ -47,13 +52,6 @@ export async function initDb(): Promise<void> {
     )
   `);
 
-  // Migration: add mode column to existing tables
-  try {
-    await client.execute(`ALTER TABLE conversations ADD COLUMN mode TEXT DEFAULT 'task'`);
-  } catch {
-    // Column already exists, ignore
-  }
-
   await client.execute(`
     CREATE TABLE IF NOT EXISTS messages (
       id TEXT PRIMARY KEY,
@@ -63,7 +61,8 @@ export async function initDb(): Promise<void> {
       metadata TEXT,
       timestamp INTEGER NOT NULL,
       sequence_order INTEGER NOT NULL,
-      agent TEXT NOT NULL DEFAULT 'task'
+      agent TEXT NOT NULL DEFAULT 'task',
+      raw_payload TEXT
     )
   `);
 
@@ -153,7 +152,7 @@ export async function getConversation(id: string): Promise<{ conversation: Conve
   };
 
   const msgResult = await client.execute({
-    sql: `SELECT id, conversation_id, role, content, metadata, timestamp, sequence_order, agent
+    sql: `SELECT id, conversation_id, role, content, metadata, timestamp, sequence_order, agent, raw_payload
           FROM messages
           WHERE conversation_id = ?
           ORDER BY sequence_order ASC`,
@@ -169,6 +168,7 @@ export async function getConversation(id: string): Promise<{ conversation: Conve
     timestamp: r.timestamp as number,
     sequence_order: r.sequence_order as number,
     agent: (r.agent as 'task' | 'skill') || 'task',
+    raw_payload: r.raw_payload as string | null,
   }));
 
   return { conversation, messages };
@@ -226,9 +226,11 @@ export async function saveMessage(
 
   const metadata = message.stats ? JSON.stringify({ stats: message.stats }) : null;
 
+  const rawPayload = message.rawPayload ? JSON.stringify(message.rawPayload) : null;
+
   await client.execute({
-    sql: `INSERT OR REPLACE INTO messages (id, conversation_id, role, content, metadata, timestamp, sequence_order, agent)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT OR REPLACE INTO messages (id, conversation_id, role, content, metadata, timestamp, sequence_order, agent, raw_payload)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       message.id,
       conversationId,
@@ -238,6 +240,7 @@ export async function saveMessage(
       message.timestamp.getTime(),
       sequenceOrder,
       message.agent || 'task',
+      rawPayload,
     ],
   });
 
@@ -252,6 +255,7 @@ export async function saveMessage(
 export function hydrateMessage(row: DbMessage): Message {
   const isAssistant = row.role === 'assistant';
   const metadata = row.metadata ? JSON.parse(row.metadata) : {};
+  const rawPayload = row.raw_payload ? JSON.parse(row.raw_payload) : undefined;
 
   if (!isAssistant) {
     return {
@@ -263,6 +267,7 @@ export function hydrateMessage(row: DbMessage): Message {
       timestamp: new Date(row.timestamp),
       stats: metadata.stats,
       agent: row.agent,
+      rawPayload,
     };
   }
 
@@ -277,5 +282,6 @@ export function hydrateMessage(row: DbMessage): Message {
     timestamp: new Date(row.timestamp),
     stats: metadata.stats,
     agent: row.agent,
+    rawPayload,
   };
 }

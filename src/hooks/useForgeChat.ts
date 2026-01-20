@@ -47,12 +47,13 @@ export interface Message {
   stats?: MessageStats;
   iterations?: AgentIteration[];  // For assistant messages: each agentic loop iteration
   agent?: 'task' | 'skill';      // Which agent generated this message
+  rawPayload?: unknown[];        // Raw stream parts from agent.stream() for debugging
 }
 
 export type ChatStatus = 'ready' | 'streaming' | 'error';
 
 interface SSEEvent {
-  type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output' | 'sandbox_timeout' | 'sandbox_created';
+  type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output' | 'sandbox_timeout' | 'sandbox_created' | 'raw_payload';
   content?: string;
   command?: string;
   commandId?: string;  // Unique identifier for command tracking
@@ -81,6 +82,8 @@ interface SSEEvent {
   sandboxId?: string;
   // Which agent generated this response
   agent?: 'task' | 'skill';
+  // Raw stream parts from agent.stream() for debugging
+  rawPayload?: unknown[];
 }
 
 function generateId(): string {
@@ -185,6 +188,7 @@ export function useForgeChat(options?: UseForgeChatOptions) {
     const messageStartTime = Date.now();
     let messageStats: MessageStats = {};
     let messageAgent: 'task' | 'skill' = 'task';
+    let messageRawPayload: unknown[] | undefined;
 
     // Detect URLs in user message - if present, show URL Context tool
     const userUrls = extractUrls(content);
@@ -416,6 +420,11 @@ export function useForgeChat(options?: UseForgeChatOptions) {
                 break;
               }
 
+              case 'raw_payload':
+                // Capture raw stream parts for debugging
+                messageRawPayload = event.rawPayload;
+                break;
+
               case 'raw-content':
                 // Start a new iteration with this raw content
                 iterationsRef.current.push({ rawContent: event.rawContent || '' });
@@ -498,6 +507,7 @@ export function useForgeChat(options?: UseForgeChatOptions) {
                   stats: finalStats,
                   iterations: finalIterations,
                   agent: messageAgent,
+                  rawPayload: messageRawPayload,
                 };
 
                 setMessages((prev) =>

@@ -8,7 +8,7 @@ import { runWithRequestContext } from '@/lib/agent/request-context';
 type AgentMode = 'task' | 'codify-skill';
 
 interface SSEEvent {
-  type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output' | 'sandbox_timeout' | 'sandbox_created';
+  type: 'text' | 'reasoning' | 'tool-call' | 'tool-start' | 'tool-result' | 'agent-tool-call' | 'agent-tool-result' | 'source' | 'iteration-end' | 'done' | 'error' | 'usage' | 'raw-content' | 'tool-output' | 'sandbox_timeout' | 'sandbox_created' | 'raw_payload';
   sandboxId?: string;
   content?: string;
   command?: string;
@@ -35,6 +35,8 @@ interface SSEEvent {
   toolOutput?: string;
   // Which agent generated this response
   agent?: 'task' | 'skill';
+  // Raw stream parts from agent.stream() for debugging
+  rawPayload?: unknown[];
 }
 
 function createSSEStream() {
@@ -143,6 +145,9 @@ export async function POST(req: Request) {
         reasoningTokens: 0,
       };
 
+      // Collect all raw stream parts for debugging
+      const rawStreamParts: unknown[] = [];
+
       // Stream agent response - agent handles multi-step via stopWhen condition
       const result = await agent.stream({ messages: modelMessages });
 
@@ -154,6 +159,10 @@ export async function POST(req: Request) {
         }
 
         console.log('[Stream Debug] Event type:', part.type, part.type === 'tool-call' ? part.toolName : '');
+
+        // Collect raw stream part for debugging
+        rawStreamParts.push(part);
+
         switch (part.type) {
           case 'reasoning-delta':
             send({ type: 'reasoning', content: part.text });
@@ -284,6 +293,9 @@ export async function POST(req: Request) {
         executionTimeMs,
         agent: mode === 'codify-skill' ? 'skill' : 'task',
       });
+
+      // Send raw stream parts for debugging
+      send({ type: 'raw_payload', rawPayload: rawStreamParts });
 
       send({ type: 'done' });
     } catch (error) {
