@@ -197,6 +197,7 @@ function PaneStats({
             <span className={colorClass}>{stats.totalReasoningTokens.toLocaleString()}</span> reasoning
           </span>
         )}
+        <span className="text-zinc-600">(excludes skill codification)</span>
       </div>
     </div>
   );

@@ -135,6 +135,9 @@ export function MetricsBar({ leftStats, rightStats }: MetricsBarProps) {
           />
         )}
       </div>
+      <div className="text-center text-xs text-zinc-600 mt-2">
+        (excludes skill codification)
+      </div>
     </div>
   );
 }
