@@ -2,9 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ComparisonPane } from './ComparisonPane';
-import { SkillsPane } from './SkillsPane';
 import { MetricsBar, ConversationStats } from './MetricsBar';
-import type { SkillMeta } from '@/hooks/useSkills';
 
 interface DemoLayoutProps {
   leftConversationId: string | null;
@@ -13,9 +11,6 @@ interface DemoLayoutProps {
   onDropRight: (id: string) => void;
   onClearLeft: () => void;
   onClearRight: () => void;
-  skills: SkillMeta[];
-  skillsLoading: boolean;
-  onSelectSkill: (name: string) => void;
   onTitlesAvailable?: (leftTitle: string | null, rightTitle: string | null) => void;
 }
 
@@ -26,9 +21,6 @@ export function DemoLayout({
   onDropRight,
   onClearLeft,
   onClearRight,
-  skills,
-  skillsLoading,
-  onSelectSkill,
   onTitlesAvailable,
 }: DemoLayoutProps) {
   const [leftStats, setLeftStats] = useState<ConversationStats | null>(null);
@@ -65,7 +57,7 @@ export function DemoLayout({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* 3-pane layout */}
+      {/* 2-pane layout */}
       <div className="flex-1 flex gap-4 p-4 overflow-hidden">
         {/* Left pane - Run 1 (Learning) */}
         <div className="flex-1 min-w-0 overflow-hidden">
@@ -76,15 +68,6 @@ export function DemoLayout({
             onClear={onClearLeft}
             onStatsLoaded={handleLeftStats}
             onTitleLoaded={handleLeftTitle}
-          />
-        </div>
-
-        {/* Middle pane - Skills */}
-        <div className="w-64 flex-shrink-0">
-          <SkillsPane
-            skills={skills}
-            loading={skillsLoading}
-            onSelectSkill={onSelectSkill}
           />
         </div>
 

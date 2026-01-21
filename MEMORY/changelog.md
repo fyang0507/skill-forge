@@ -2,6 +2,12 @@
 
 Last Updated: 2026-01-21
 
+## 2026-01-21: Inline Skill Artifacts
+
+- **Removed Skills Pane**: Comparison mode now shows 2-pane layout (left/right conversations only) instead of 3-pane with middle skills pane
+- **SkillArtifact component**: New expandable artifact in ChatMessage displays "Skill Created" badge with skill name when `skill set` command succeeds; lazy-loads content on expand via `/api/skills/{name}`
+- **Detection logic**: `parseSkillCreation()` scans message parts for shell tool results matching `Skill "X" saved` pattern
+
 ## 2026-01-21: Pinned Comparisons Feature
 
 - **Pinned comparisons**: Users can bookmark comparison pairs for quick access via "Pin" button in comparison mode header - stores comparison name, conversation IDs, and titles in session state

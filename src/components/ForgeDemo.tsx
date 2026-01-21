@@ -670,9 +670,6 @@ export default function ForgeDemo() {
             onDropRight={handleAddToRight}
             onClearLeft={handleClearLeft}
             onClearRight={handleClearRight}
-            skills={leftConversationId || rightConversationId ? skills : []}
-            skillsLoading={skillsLoading}
-            onSelectSkill={handleSelectSkill}
             onTitlesAvailable={handleTitlesAvailable}
           />
         ) : (

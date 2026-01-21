@@ -52,6 +52,24 @@ function parseToolSkillSuggestion(parts: MessagePart[]): SkillSuggestion | null 
   return null;
 }
 
+// Detect skill set command results
+function parseSkillCreation(parts: MessagePart[]): string | null {
+  for (const part of parts) {
+    // Check shell tool results for "Skill "X" saved" pattern
+    const isShellTool = part.type === 'agent-tool' && part.toolName === 'shell';
+    const command = part.toolArgs?.command as string | undefined;
+
+    if (isShellTool && command?.startsWith('skill set ')) {
+      // Extract skill name from result: 'Skill "name" saved'
+      const match = part.content?.match(/Skill "([^"]+)" saved/);
+      if (match) {
+        return match[1];
+      }
+    }
+  }
+  return null;
+}
+
 // Chevron icon component
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
@@ -63,6 +81,62 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
     >
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
     </svg>
+  );
+}
+
+// Skill artifact component for inline display
+interface SkillArtifactProps {
+  skillName: string;
+}
+
+function SkillArtifact({ skillName }: SkillArtifactProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleToggle = async () => {
+    if (!expanded && !content) {
+      // Fetch skill content on first expand
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/skills/${encodeURIComponent(skillName)}`);
+        if (res.ok) {
+          const skill = await res.json();
+          setContent(skill.content);
+        }
+      } catch (e) {
+        console.error('Failed to fetch skill:', e);
+      }
+      setLoading(false);
+    }
+    setExpanded(!expanded);
+  };
+
+  return (
+    <div className="my-2 border border-emerald-500/30 rounded-lg overflow-hidden">
+      <button
+        onClick={handleToggle}
+        className="flex items-center gap-2 w-full px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors text-left"
+      >
+        <ChevronIcon expanded={expanded} />
+        <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span className="text-emerald-400 font-medium">Skill Created</span>
+        <code className="text-sm text-zinc-400 bg-zinc-700 px-1.5 rounded">{skillName}</code>
+      </button>
+      {expanded && (
+        <div className="px-3 py-2 bg-zinc-900 max-h-[300px] overflow-y-auto">
+          {loading ? (
+            <div className="text-zinc-500 text-sm">Loading...</div>
+          ) : content ? (
+            <pre className="text-sm text-zinc-300 whitespace-pre-wrap font-mono">{content}</pre>
+          ) : (
+            <div className="text-zinc-500 text-sm">Failed to load skill content</div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -355,6 +429,9 @@ export default function ChatMessage({ message, onCodifySkill, isCodifying }: Cha
   // Check for skill suggestion in tool results (from skill suggest command)
   const skillSuggestion = parseToolSkillSuggestion(message.parts);
 
+  // Check for skill creation in tool results (from skill set command)
+  const createdSkillName = parseSkillCreation(message.parts);
+
   return (
     <div className="flex justify-start w-full min-w-0">
       <div className="max-w-[90%] min-w-0 px-4 py-3 bg-zinc-800 text-zinc-100 rounded-2xl rounded-bl-md overflow-hidden">
@@ -376,6 +453,7 @@ export default function ChatMessage({ message, onCodifySkill, isCodifying }: Cha
               return <TextPart key={index} content={part.content} />;
             })}
             <MessageStats stats={message.stats} />
+            {createdSkillName && <SkillArtifact skillName={createdSkillName} />}
             {skillSuggestion && skillSuggestion.status === 'success' && onCodifySkill && (
               <div className="mt-3 pt-3 border-t border-zinc-700">
                 <button
