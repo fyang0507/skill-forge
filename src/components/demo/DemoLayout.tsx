@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ComparisonPane } from './ComparisonPane';
 import { SkillsPane } from './SkillsPane';
 import { MetricsBar, ConversationStats } from './MetricsBar';
@@ -16,6 +16,7 @@ interface DemoLayoutProps {
   skills: SkillMeta[];
   skillsLoading: boolean;
   onSelectSkill: (name: string) => void;
+  onTitlesAvailable?: (leftTitle: string | null, rightTitle: string | null) => void;
 }
 
 export function DemoLayout({
@@ -28,9 +29,15 @@ export function DemoLayout({
   skills,
   skillsLoading,
   onSelectSkill,
+  onTitlesAvailable,
 }: DemoLayoutProps) {
   const [leftStats, setLeftStats] = useState<ConversationStats | null>(null);
   const [rightStats, setRightStats] = useState<ConversationStats | null>(null);
+  const [leftTitle, setLeftTitle] = useState<string | null>(null);
+  const [rightTitle, setRightTitle] = useState<string | null>(null);
+
+  // Track previous values to avoid unnecessary callbacks
+  const prevTitlesRef = useRef<{ left: string | null; right: string | null }>({ left: null, right: null });
 
   const handleLeftStats = useCallback((stats: ConversationStats | null) => {
     setLeftStats(stats);
@@ -39,6 +46,22 @@ export function DemoLayout({
   const handleRightStats = useCallback((stats: ConversationStats | null) => {
     setRightStats(stats);
   }, []);
+
+  const handleLeftTitle = useCallback((title: string | null) => {
+    setLeftTitle(title);
+  }, []);
+
+  const handleRightTitle = useCallback((title: string | null) => {
+    setRightTitle(title);
+  }, []);
+
+  // Notify parent when titles change
+  useEffect(() => {
+    if (prevTitlesRef.current.left !== leftTitle || prevTitlesRef.current.right !== rightTitle) {
+      prevTitlesRef.current = { left: leftTitle, right: rightTitle };
+      onTitlesAvailable?.(leftTitle, rightTitle);
+    }
+  }, [leftTitle, rightTitle, onTitlesAvailable]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -52,6 +75,7 @@ export function DemoLayout({
             onDrop={onDropLeft}
             onClear={onClearLeft}
             onStatsLoaded={handleLeftStats}
+            onTitleLoaded={handleLeftTitle}
           />
         </div>
 
@@ -72,6 +96,7 @@ export function DemoLayout({
             onDrop={onDropRight}
             onClear={onClearRight}
             onStatsLoaded={handleRightStats}
+            onTitleLoaded={handleRightTitle}
           />
         </div>
       </div>

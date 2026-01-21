@@ -1,6 +1,12 @@
 # Changelog
 
-Last Updated: 2026-01-19
+Last Updated: 2026-01-21
+
+## 2026-01-21: Pinned Comparisons Feature
+
+- **Pinned comparisons**: Users can bookmark comparison pairs for quick access via "Pin" button in comparison mode header - stores comparison name, conversation IDs, and titles in session state
+- **Sidebar section**: New "Pinned Comparisons" collapsible section displays pinned items with split-view icon, name, subtitle showing "{left} vs {right}", click-to-load, double-click-to-rename, and menu with unpin option
+- **Title propagation**: Added `onTitleLoaded` callback chain from `ComparisonPane` → `DemoLayout` → `ForgeDemo` to track conversation titles for pin metadata
 
 ## 2026-01-19: Wrap Native Tools as Custom Tools
 

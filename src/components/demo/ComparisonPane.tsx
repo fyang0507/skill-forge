@@ -12,6 +12,7 @@ interface ComparisonPaneProps {
   onDrop: (conversationId: string) => void;
   onClear: () => void;
   onStatsLoaded?: (stats: ConversationStats | null) => void;
+  onTitleLoaded?: (title: string | null) => void;
 }
 
 interface ConversationData {
@@ -25,6 +26,7 @@ export function ComparisonPane({
   onDrop,
   onClear,
   onStatsLoaded,
+  onTitleLoaded,
 }: ComparisonPaneProps) {
   const [conversationData, setConversationData] = useState<ConversationData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -37,6 +39,7 @@ export function ComparisonPane({
     if (!conversationId) {
       setConversationData(null);
       onStatsLoaded?.(null);
+      onTitleLoaded?.(null);
       return;
     }
 
@@ -51,10 +54,14 @@ export function ComparisonPane({
         }
 
         const data = await res.json();
+        const title = data.conversation?.title || 'Conversation';
         setConversationData({
           messages: data.messages || [],
-          title: data.conversation?.title || 'Conversation',
+          title,
         });
+
+        // Notify parent of loaded title
+        onTitleLoaded?.(title);
 
         // Calculate stats from messages (only task mode, exclude codify-skill)
         const stats = calculateStats(data.messages || []);
@@ -63,13 +70,14 @@ export function ComparisonPane({
         console.error('Error loading conversation:', err);
         setError('Failed to load conversation');
         onStatsLoaded?.(null);
+        onTitleLoaded?.(null);
       } finally {
         setLoading(false);
       }
     };
 
     loadConversation();
-  }, [conversationId, onStatsLoaded]);
+  }, [conversationId, onStatsLoaded, onTitleLoaded]);
 
   const isEmpty = !conversationId;
 

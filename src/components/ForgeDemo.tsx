@@ -10,6 +10,7 @@ import { Sidebar } from './Sidebar';
 import { SandboxTimeoutBanner } from './SandboxTimeoutBanner';
 import { useSkills } from '@/hooks/useSkills';
 import { DemoLayout } from './demo/DemoLayout';
+import { usePinnedComparisons, PinnedComparison } from '@/hooks/usePinnedComparisons';
 
 const EXAMPLE_PROMPTS = [
   'What skills do I have?',
@@ -232,6 +233,13 @@ export default function ForgeDemo() {
   const [leftConversationId, setLeftConversationId] = useState<string | null>(null);
   const [rightConversationId, setRightConversationId] = useState<string | null>(null);
   const [selectedForComparison, setSelectedForComparison] = useState<string | null>(null);
+  const [leftTitle, setLeftTitle] = useState<string | null>(null);
+  const [rightTitle, setRightTitle] = useState<string | null>(null);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinName, setPinName] = useState('');
+
+  // Pinned comparisons
+  const { pinnedComparisons, pinComparison, unpinComparison, renameComparison, isPinned } = usePinnedComparisons();
 
   // Skills management
   const { skills, loading: skillsLoading, deleteSkill } = useSkills();
@@ -514,10 +522,37 @@ export default function ForgeDemo() {
         setLeftConversationId(null);
         setRightConversationId(null);
         setSelectedForComparison(null);
+        setLeftTitle(null);
+        setRightTitle(null);
       }
       return !prev;
     });
   }, []);
+
+  const handleTitlesAvailable = useCallback((left: string | null, right: string | null) => {
+    setLeftTitle(left);
+    setRightTitle(right);
+  }, []);
+
+  const handleLoadPinnedComparison = useCallback((comparison: PinnedComparison) => {
+    setIsComparisonMode(true);
+    setLeftConversationId(comparison.leftConversationId);
+    setRightConversationId(comparison.rightConversationId);
+  }, []);
+
+  const handlePinComparison = useCallback(() => {
+    if (!leftConversationId || !rightConversationId || !leftTitle || !rightTitle) return;
+    pinComparison(pinName, leftConversationId, rightConversationId, leftTitle, rightTitle);
+    setShowPinModal(false);
+    setPinName('');
+  }, [leftConversationId, rightConversationId, leftTitle, rightTitle, pinName, pinComparison]);
+
+  const handleOpenPinModal = useCallback(() => {
+    if (leftTitle && rightTitle) {
+      setPinName(`${leftTitle} vs ${rightTitle}`);
+    }
+    setShowPinModal(true);
+  }, [leftTitle, rightTitle]);
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100 overflow-hidden">
@@ -549,6 +584,10 @@ export default function ForgeDemo() {
         onSelectForComparison={setSelectedForComparison}
         onAddToLeft={handleAddToLeft}
         onAddToRight={handleAddToRight}
+        pinnedComparisons={pinnedComparisons}
+        onLoadPinnedComparison={handleLoadPinnedComparison}
+        onUnpinComparison={unpinComparison}
+        onRenamePinnedComparison={renameComparison}
       />
 
       {/* Main content */}
@@ -589,6 +628,26 @@ export default function ForgeDemo() {
                 </button>
               </div>
 
+              {/* Pin comparison button */}
+              {isComparisonMode && (
+                <button
+                  onClick={handleOpenPinModal}
+                  disabled={!leftConversationId || !rightConversationId || !leftTitle || !rightTitle || isPinned(leftConversationId, rightConversationId)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-1.5 ${
+                    isPinned(leftConversationId, rightConversationId)
+                      ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
+                      : !leftConversationId || !rightConversationId || !leftTitle || !rightTitle
+                        ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                  {isPinned(leftConversationId, rightConversationId) ? 'Pinned' : 'Pin'}
+                </button>
+              )}
+
               {/* New chat button */}
               {!isComparisonMode && messages.length > 0 && (
                 <button
@@ -611,9 +670,10 @@ export default function ForgeDemo() {
             onDropRight={handleAddToRight}
             onClearLeft={handleClearLeft}
             onClearRight={handleClearRight}
-            skills={skills}
+            skills={leftConversationId || rightConversationId ? skills : []}
             skillsLoading={skillsLoading}
             onSelectSkill={handleSelectSkill}
+            onTitlesAvailable={handleTitlesAvailable}
           />
         ) : (
           <>
@@ -857,6 +917,49 @@ export default function ForgeDemo() {
       {/* System Prompt Modal */}
       {showSystemPrompt && (
         <SystemPromptModal onClose={() => setShowSystemPrompt(false)} />
+      )}
+
+      {/* Pin Comparison Modal */}
+      {showPinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowPinModal(false)} />
+          <div className="relative bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-semibold text-zinc-100 mb-4">Pin Comparison</h2>
+            <p className="text-sm text-zinc-400 mb-4">
+              Save this comparison for quick access later.
+            </p>
+            <input
+              type="text"
+              value={pinName}
+              onChange={(e) => setPinName(e.target.value)}
+              placeholder="Comparison name"
+              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500 mb-4"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && pinName.trim()) {
+                  handlePinComparison();
+                } else if (e.key === 'Escape') {
+                  setShowPinModal(false);
+                }
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowPinModal(false)}
+                className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePinComparison}
+                disabled={!pinName.trim()}
+                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+              >
+                Pin
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

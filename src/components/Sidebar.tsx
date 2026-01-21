@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { GroupedConversations, Conversation } from '@/hooks/useConversations';
 import type { SkillMeta } from '@/hooks/useSkills';
+import type { PinnedComparison } from '@/hooks/usePinnedComparisons';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -24,6 +25,11 @@ interface SidebarProps {
   onSelectForComparison?: (id: string | null) => void;
   onAddToLeft?: (id: string) => void;
   onAddToRight?: (id: string) => void;
+  // Pinned comparisons props
+  pinnedComparisons?: PinnedComparison[];
+  onLoadPinnedComparison?: (comparison: PinnedComparison) => void;
+  onUnpinComparison?: (id: string) => void;
+  onRenamePinnedComparison?: (id: string, name: string) => void;
 }
 
 // Collapsible Section Component
@@ -463,6 +469,146 @@ function SkillItem({
   );
 }
 
+// Pinned Comparison Item Component
+function PinnedComparisonItem({
+  comparison,
+  onLoad,
+  onUnpin,
+  onRename,
+}: {
+  comparison: PinnedComparison;
+  onLoad: () => void;
+  onUnpin: () => void;
+  onRename: (name: string) => void;
+}) {
+  const [showMenu, setShowMenu] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(comparison.name);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (menuButtonRef.current) {
+      const rect = menuButtonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const menuHeight = 60;
+
+      if (spaceBelow < menuHeight + 10) {
+        setMenuStyle({
+          position: 'fixed',
+          right: window.innerWidth - rect.right,
+          bottom: window.innerHeight - rect.top + 4,
+        });
+      } else {
+        setMenuStyle({
+          position: 'fixed',
+          right: window.innerWidth - rect.right,
+          top: rect.bottom + 4,
+        });
+      }
+    }
+    setShowMenu(!showMenu);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditing(true);
+    setEditName(comparison.name);
+  };
+
+  const handleRename = () => {
+    const trimmedName = editName.trim();
+    if (trimmedName && trimmedName !== comparison.name) {
+      onRename(trimmedName);
+    }
+    setIsEditing(false);
+    setEditName(comparison.name);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleRename();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setEditName(comparison.name);
+    }
+  };
+
+  return (
+    <div
+      className="group relative flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors hover:bg-zinc-800"
+      onClick={onLoad}
+    >
+      {/* Split view icon */}
+      <svg className="w-4 h-4 text-zinc-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+      </svg>
+
+      {/* Name and subtitle */}
+      <div className="flex-1 min-w-0" onDoubleClick={handleDoubleClick}>
+        {isEditing ? (
+          <input
+            type="text"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onBlur={handleRename}
+            onKeyDown={handleKeyDown}
+            className="w-full px-1 py-0.5 text-sm bg-zinc-800 border border-zinc-600 rounded text-zinc-100 focus:outline-none focus:border-blue-500"
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <>
+            <div className="text-sm text-zinc-200 truncate">{comparison.name}</div>
+            <div className="text-xs text-zinc-500 truncate">
+              {comparison.leftTitle} vs {comparison.rightTitle}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Menu button */}
+      <button
+        ref={menuButtonRef}
+        onClick={handleMenuClick}
+        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-zinc-700 transition-all"
+      >
+        <svg className="w-4 h-4 text-zinc-400" fill="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="6" r="1.5" />
+          <circle cx="12" cy="12" r="1.5" />
+          <circle cx="12" cy="18" r="1.5" />
+        </svg>
+      </button>
+
+      {/* Menu dropdown */}
+      {showMenu && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowMenu(false); }} />
+          <div
+            className="z-50 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl py-1 min-w-[120px]"
+            style={menuStyle}
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(false);
+                onUnpin();
+              }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-400 hover:bg-zinc-700 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Unpin
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function Sidebar({
   isOpen,
   onToggle,
@@ -482,6 +628,10 @@ export function Sidebar({
   onSelectForComparison,
   onAddToLeft,
   onAddToRight,
+  pinnedComparisons,
+  onLoadPinnedComparison,
+  onUnpinComparison,
+  onRenamePinnedComparison,
 }: SidebarProps) {
   // Count total conversations
   const totalConversations =
@@ -645,6 +795,30 @@ export function Sidebar({
               />
             </div>
           </CollapsibleSection>
+
+          {/* Pinned Comparisons Section */}
+          {pinnedComparisons && pinnedComparisons.length > 0 && (
+            <>
+              <div className="border-t border-zinc-800 mx-2 mt-2" />
+              <CollapsibleSection
+                title="Pinned Comparisons"
+                count={pinnedComparisons.length}
+                storageKey="pinned-comparisons"
+              >
+                <div className="space-y-0.5 px-2 max-h-[30vh] overflow-y-auto">
+                  {pinnedComparisons.map((comparison) => (
+                    <PinnedComparisonItem
+                      key={comparison.id}
+                      comparison={comparison}
+                      onLoad={() => onLoadPinnedComparison?.(comparison)}
+                      onUnpin={() => onUnpinComparison?.(comparison.id)}
+                      onRename={(name) => onRenamePinnedComparison?.(comparison.id, name)}
+                    />
+                  ))}
+                </div>
+              </CollapsibleSection>
+            </>
+          )}
 
           {/* Spacer */}
           <div className="flex-1 min-h-0" />
