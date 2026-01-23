@@ -6,7 +6,7 @@ let db: Client | null = null;
 export function getDb(): Client {
   if (!db) {
     db = createClient({
-      url: process.env.TURSO_DATABASE_URL || 'file:./data/skillforge.db',
+      url: process.env.TURSO_DATABASE_URL || 'file:./data/tsugi.db',
       authToken: process.env.TURSO_AUTH_TOKEN,
     });
   }

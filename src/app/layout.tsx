@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Skill Forge",
-  description: "Educated guess for the first time, then shortest path the second time.",
+  title: "tsugi",
+  description: "Explore once. Exploit next.",
 };
 
 export default function RootLayout({

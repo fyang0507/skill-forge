@@ -6,7 +6,7 @@
 import 'dotenv/config';
 import { createClient } from '@libsql/client';
 
-const db = createClient({ url: 'file:./data/skillforge.db' });
+const db = createClient({ url: 'file:./data/tsugi.db' });
 
 async function main() {
   const conversationId = process.argv[2];

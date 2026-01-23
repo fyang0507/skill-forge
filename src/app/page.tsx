@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const STORAGE_KEY = 'skillforge_llm_api_key';
+const STORAGE_KEY = 'tsugi_llm_api_key';
 
 export default function OnboardingPage() {
   const [apiKey, setApiKey] = useState('');
@@ -35,7 +35,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-md space-y-8">
         {/* Logo/Title */}
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-zinc-100">SkillForge</h1>
+          <h1 className="text-3xl font-bold text-zinc-100">tsugi</h1>
           <p className="text-zinc-500 text-sm">
             AI agents that learn from execution and codify reusable skills
           </p>

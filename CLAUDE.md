@@ -1,8 +1,8 @@
-# SkillForge
+# Tsugi (次)
 
 ## Product Vision
 
-Agentic framework where AI agents learn from trial-and-error execution and codify learnings into reusable skills.
+Agentic framework where AI agents learn from trial-and-error execution and codify learnings into reusable skills. **"Explore once. Exploit next."**
 
 **Core Value:** Run 1 = Research + Skill Creation. Run 2 = Skill Lookup + Skip Research.
 

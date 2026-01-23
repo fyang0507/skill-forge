@@ -18,7 +18,7 @@ const EXAMPLE_PROMPTS = [
   'Search for skills about React hooks',
 ];
 
-const LLM_API_KEY_STORAGE = 'skillforge_llm_api_key';
+const LLM_API_KEY_STORAGE = 'tsugi_llm_api_key';
 
 // Full skill data for the detail view
 interface SkillDetail {
@@ -201,7 +201,7 @@ function SystemPromptModal({
 
         {/* Footer */}
         <div className="px-6 py-3 border-t border-zinc-700 text-xs text-zinc-500">
-          SkillForge Dual-Agent System
+          Tsugi Dual-Agent System
         </div>
       </div>
     </div>
@@ -596,7 +596,7 @@ export default function ForgeDemo() {
         <header className="flex-shrink-0 px-6 py-4 border-b border-zinc-800">
           <div className={`w-full ${isComparisonMode ? '' : 'max-w-4xl'} mx-auto flex items-center justify-between`}>
             <div className={`transition-all ${sidebarOpen ? '' : 'ml-12'}`}>
-              <h1 className="text-xl font-bold">SkillForge</h1>
+              <h1 className="text-xl font-bold">Tsugi</h1>
               <p className="text-sm text-zinc-400">
                 Learn from YouTube tutorials and create reusable skills
               </p>
