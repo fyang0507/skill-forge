@@ -540,11 +540,13 @@ export default function ForgeDemo() {
     setRightConversationId(comparison.rightConversationId);
   }, []);
 
-  const handlePinComparison = useCallback(() => {
+  const handlePinComparison = useCallback(async () => {
     if (!leftConversationId || !rightConversationId || !leftTitle || !rightTitle) return;
-    pinComparison(pinName, leftConversationId, rightConversationId, leftTitle, rightTitle);
-    setShowPinModal(false);
-    setPinName('');
+    const id = await pinComparison(pinName, leftConversationId, rightConversationId, leftTitle, rightTitle);
+    if (id) {
+      setShowPinModal(false);
+      setPinName('');
+    }
   }, [leftConversationId, rightConversationId, leftTitle, rightTitle, pinName, pinComparison]);
 
   const handleOpenPinModal = useCallback(() => {
