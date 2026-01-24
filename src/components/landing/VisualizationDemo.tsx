@@ -15,6 +15,18 @@ export const VisualizationDemo: React.FC = () => {
   const [timer1, setTimer1] = useState(0);
   const [timer2, setTimer2] = useState(0);
 
+  const startDemo = () => {
+    setPhase('run1');
+    setTimer1(0);
+    setTimer2(0);
+  };
+
+  const resetDemo = () => {
+    setPhase('idle');
+    setTimer1(0);
+    setTimer2(0);
+  };
+
   // Auto-play when in view with 3s Delay
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
@@ -62,18 +74,6 @@ export const VisualizationDemo: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [phase]);
-
-  const startDemo = () => {
-    setPhase('run1');
-    setTimer1(0);
-    setTimer2(0);
-  };
-
-  const resetDemo = () => {
-    setPhase('idle');
-    setTimer1(0);
-    setTimer2(0);
-  };
 
   const handleReplay = () => {
       resetDemo();
@@ -177,25 +177,6 @@ export const VisualizationDemo: React.FC = () => {
                         initial={{ pathLength: 0, opacity: 0 }}
                         animate={isRun1Active ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
                         transition={{ duration: isRun1Active ? 3 : 0, ease: "linear" }}
-                    />
-
-                    {/* Dead Ends (Detours) */}
-                    <motion.path
-                        d="M 60 100 V 130"
-                        stroke="#ef4444"
-                        strokeWidth="4"
-                        initial={{ pathLength: 0, opacity: 0 }}
-                        animate={isRun1Active ? { pathLength: 1, opacity: 0.6 } : { pathLength: 0, opacity: 0 }}
-                        transition={{ delay: isRun1Active ? 0.5 : 0, duration: isRun1Active ? 0.5 : 0 }}
-                    />
-
-                     <motion.path
-                        d="M 220 140 H 250"
-                        stroke="#ef4444"
-                        strokeWidth="4"
-                        initial={{ pathLength: 0, opacity: 0 }}
-                        animate={isRun1Active ? { pathLength: 1, opacity: 0.6 } : { pathLength: 0, opacity: 0 }}
-                        transition={{ delay: isRun1Active ? 2.2 : 0, duration: isRun1Active ? 0.5 : 0 }}
                     />
 
                     {/* Start Node */}

@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { Logo } from './Logo';
 import { Github } from 'lucide-react';
+import { usePinnedComparisons } from '@/hooks/usePinnedComparisons';
 
 export const Header: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
+  const { pinnedComparisons, isLoading } = usePinnedComparisons();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -14,6 +16,11 @@ export const Header: React.FC = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Determine the Examples link destination
+  const examplesHref = pinnedComparisons.length > 0
+    ? `/task?compare=${pinnedComparisons[0].id}`
+    : '/task';
 
   return (
     <header
@@ -27,7 +34,14 @@ export const Header: React.FC = () => {
         <Logo className="h-8" />
 
         <nav className="flex items-center gap-6">
-          <a href="#" className="hidden md:block text-sm font-medium text-zinc-400 hover:text-white transition-colors">Examples</a>
+          <a
+            href={examplesHref}
+            className={`hidden md:block text-sm font-medium transition-colors ${
+              isLoading ? 'text-zinc-600 pointer-events-none' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            Examples
+          </a>
           <div className="h-6 w-px bg-white/10 hidden md:block" />
           <a
             href="https://github.com/fyang0507/tsugi"
