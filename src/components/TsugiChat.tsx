@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useForgeChat, Message } from '@/hooks/useForgeChat';
 import { useConversations } from '@/hooks/useConversations';
 import ChatMessage, { SkillSuggestion } from './ChatMessage';
@@ -660,7 +661,9 @@ export default function TsugiChat() {
         <header className="flex-shrink-0 py-4 relative z-10">
           <div className={`w-full ${isComparisonMode ? 'px-6' : 'max-w-4xl px-6'} mx-auto flex items-center justify-between`}>
             <div className={`transition-all ${sidebarOpen ? '' : 'ml-8'}`}>
-              <Logo className="h-10" />
+              <Link href="/">
+                <Logo className="h-10" />
+              </Link>
               <p className="text-sm text-zinc-400 mt-1">
                 Explore once. Exploit next.
               </p>
