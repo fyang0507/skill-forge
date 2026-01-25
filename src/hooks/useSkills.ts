@@ -20,13 +20,18 @@ export function useSkills(): UseSkillsResult {
   const [skills, setSkills] = useState<SkillMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingDeletesRef = useRef<Set<string>>(new Set());
 
   const fetchSkills = useCallback(async () => {
     try {
       const res = await fetch('/api/skills');
       if (res.ok) {
         const data = await res.json();
-        setSkills(data);
+        // Filter out skills that are pending deletion to prevent race conditions
+        const filtered = data.filter(
+          (s: SkillMeta) => !pendingDeletesRef.current.has(s.name)
+        );
+        setSkills(filtered);
       }
     } catch (error) {
       console.error('Failed to fetch skills:', error);
@@ -55,9 +60,11 @@ export function useSkills(): UseSkillsResult {
   }, [fetchSkills]);
 
   const deleteSkill = useCallback(async (name: string) => {
+    // Mark as pending delete to prevent poll from bringing it back
+    pendingDeletesRef.current.add(name);
+
     // Optimistic update
-    const previousSkills = skills;
-    setSkills(skills.filter(s => s.name !== name));
+    setSkills(prev => prev.filter(s => s.name !== name));
 
     try {
       const res = await fetch(`/api/skills/${encodeURIComponent(name)}`, {
@@ -65,14 +72,19 @@ export function useSkills(): UseSkillsResult {
       });
       if (!res.ok) {
         // Revert on failure
-        setSkills(previousSkills);
+        pendingDeletesRef.current.delete(name);
+        await fetchSkills();
+      } else {
+        // Success - remove from pending deletes
+        pendingDeletesRef.current.delete(name);
       }
     } catch (error) {
       console.error('Failed to delete skill:', error);
       // Revert on error
-      setSkills(previousSkills);
+      pendingDeletesRef.current.delete(name);
+      await fetchSkills();
     }
-  }, [skills]);
+  }, [fetchSkills]);
 
   return { skills, loading, deleteSkill };
 }
