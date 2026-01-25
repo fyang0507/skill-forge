@@ -214,10 +214,12 @@ export default function TsugiChat() {
 
   // Load LLM API key from sessionStorage after hydration (avoids SSR mismatch)
   useEffect(() => {
-    const savedKey = sessionStorage.getItem(LLM_API_KEY_STORAGE);
-    if (savedKey) {
-      setEnvVars([{ key: 'GOOGLE_GENERATIVE_AI_API_KEY', value: savedKey }]);
-    }
+    queueMicrotask(() => {
+      const savedKey = sessionStorage.getItem(LLM_API_KEY_STORAGE);
+      if (savedKey) {
+        setEnvVars([{ key: 'GOOGLE_GENERATIVE_AI_API_KEY', value: savedKey }]);
+      }
+    });
   }, []);
 
   const [envPanelOpen, setEnvPanelOpen] = useState(false);
