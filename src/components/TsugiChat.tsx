@@ -311,8 +311,8 @@ export default function TsugiChat() {
   useEffect(() => {
     const textarea = inputRef.current;
     if (textarea) {
-      textarea.style.height = '48px'; // Reset to min height
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+      textarea.style.height = 'auto'; // Reset to auto to get true scrollHeight
+      textarea.style.height = `${Math.max(48, Math.min(textarea.scrollHeight, 200))}px`;
     }
   }, [input]);
 
@@ -852,7 +852,7 @@ export default function TsugiChat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Any anything..."
+                  placeholder="Ask anything..."
                   rows={1}
                   className="w-full px-4 py-3 bg-zinc-900/50 border border-white/10 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 resize-none overflow-y-auto transition-all"
                   style={{
