@@ -34,7 +34,7 @@ export const searchTool = {
  * and custom tools cannot coexist in the same agent.
  */
 export const analyzeUrlTool = {
-  description: `Analyze a URL to extract and understand its content. Appropriate uses: reading documentation, understanding API responses, analyzing video/media content. For video content specifically, this IS the execution method since video transcripts can only be accessed this way.`,
+  description: `Analyze a URL and understand its content (multimedia accepted). Appropriate uses: reading documentation, analyzing video/media content. For YouTube/video content specifically, this IS the execution method since video details can only be accessed this way.`,
   inputSchema: z.object({
     url: z.string().describe('The URL to analyze'),
   }),
