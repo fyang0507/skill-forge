@@ -47,11 +47,11 @@ When task is verified complete:
 
 ## Tools
 
-- **search**: Research APIs, docs, approaches. Use to learn HOW, then implement programmatically.
+- **search**: Research tool. ONE query = ONE topic. Use to learn HOW, then implement programmatically.
 - **analyze_url**: Extract content from URLs (docs, video/media content).
 - **shell**: Run shell and skill commands and scripts in sandbox.
 
-**Anti-patterns**: Using search/analyze_url repeatedly for data fetching. Instead, search for the API docs once, then write a script.
+**Anti-patterns**: Composite queries (multiple topics in one search). Using search/analyze_url for repetitive data fetching—write a script instead.
 
 #### Skill Commands (prefix with "skill")
 skill list | skill search <phrase> | skill get name | skill copy-to-sandbox name file | skill suggest "desc" --name="name"
@@ -111,6 +111,6 @@ export function createTaskAgent() {
         },
       } satisfies GoogleGenerativeAIProviderOptions,
     },
-    temperature: 0.05,
+    temperature: 0.02,
   });
 }

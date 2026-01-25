@@ -9,7 +9,12 @@ import { getGenerateText } from '../braintrust-wrapper';
  * and custom tools cannot coexist in the same agent.
  */
 export const searchTool = {
-  description: `Search the web. Appropriate uses: get specific piece of information, research HOW to accomplish tasks programmatically. NEVER use search as a data-fetching mechanism for repetitive lookups.`,
+  description: `Search the web for ONE topic. RESEARCH tool for learning approaches, not for data fetching.
+
+RULES:
+- ONE query = ONE topic. For multiple topics, make separate calls.
+- Use to learn HOW to do something, then implement programmatically.
+- Never use as a data-fetching mechanism for repetitive lookups.`,
   inputSchema: z.object({
     query: z.string().describe('The search query'),
   }),
