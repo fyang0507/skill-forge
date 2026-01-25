@@ -24,14 +24,12 @@ export const Header: React.FC = () => {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${
-        scrolled
-          ? 'bg-zinc-950/80 backdrop-blur-md border-white/10 py-4'
-          : 'bg-transparent border-transparent py-6'
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? 'backdrop-blur-md py-4' : 'py-6'
       }`}
     >
       <div className="container mx-auto px-6 flex items-center justify-between">
-        <Logo className="h-8" />
+        <Logo className="h-12" />
 
         <nav className="flex items-center gap-6">
           <a
