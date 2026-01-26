@@ -54,7 +54,7 @@ When task is verified complete:
 **Anti-patterns**: Composite queries (multiple topics in one search). Using search/analyze_url for repetitive data fetching—write a script instead.
 
 #### Skill Commands (prefix with "skill")
-skill list | skill search <phrase> | skill get name | skill copy-to-sandbox name file | skill suggest "desc" --name="name"
+skill list | skill search <phrase> | skill get name | skill suggest "desc" --name="name"
 
 Note: skill search treats input as a single phrase. Skill commands DO NOT support chaining (;). Run skill shell calls separately.
 

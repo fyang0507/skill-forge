@@ -35,8 +35,6 @@ Available commands:
 - skill search keyword - Search skills by keyword
 - skill get name - Read a skill's full content
 - skill set name "content" - Create or update a skill
-- skill add-file file.py name - Add sandbox file to skill
-- skill copy-to-sandbox name file.py - Copy skill file to sandbox
 - ls - List sandbox files
 - cat filename - Read sandbox file content
 
