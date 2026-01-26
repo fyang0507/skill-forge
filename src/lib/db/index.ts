@@ -1,5 +1,5 @@
 import { createClient, Client } from '@libsql/client';
-import type { Message } from '@/hooks/useForgeChat';
+import type { Message } from '@/lib/messages/transform';
 
 let db: Client | null = null;
 
@@ -230,9 +230,10 @@ export async function deleteConversation(id: string): Promise<void> {
 }
 
 // Save a single message
+// Requires id and timestamp since the frontend always provides these
 export async function saveMessage(
   conversationId: string,
-  message: Message,
+  message: Message & { id: string; timestamp: Date },
   sequenceOrder: number
 ): Promise<void> {
   const client = getDb();

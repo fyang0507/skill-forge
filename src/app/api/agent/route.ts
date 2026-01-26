@@ -1,6 +1,6 @@
 import { createTaskAgent } from '@/lib/agent/task-agent';
 import { createSkillAgent } from '@/lib/agent/skill-agent';
-import { toModelMessages, type DBMessage, type UIMessage } from '@/lib/messages/transform';
+import { toModelMessages, type Message } from '@/lib/messages/transform';
 import { clearSandboxExecutor, getSandboxExecutor } from '@/lib/sandbox/executor';
 import { mergePlaygroundEnv } from '@/lib/tools/playground-env';
 import { runWithRequestContext } from '@/lib/agent/request-context';
@@ -80,7 +80,7 @@ function createSSEStream() {
 
 export async function POST(req: Request) {
   const { messages: initialMessages, mode = 'task', conversationId, env: uiEnv, sandboxId: requestSandboxId } = await req.json() as {
-    messages: Array<DBMessage | UIMessage>;
+    messages: Message[];
     mode?: AgentMode;
     conversationId?: string;
     env?: Record<string, string>;
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
       // The skill agent gets a blank context and calls get_processed_transcript tool
       // Create agent per-request INSIDE request context so it picks up user-provided API key
       let agent;
-      let messages: Array<DBMessage | UIMessage>;
+      let messages: Message[];
 
       if (mode === 'codify-skill') {
         agent = createSkillAgent();

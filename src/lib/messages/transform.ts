@@ -18,14 +18,8 @@ import type {
 // Type Definitions
 // ============================================================================
 
-/** Frontend message format used in useForgeChat */
-export interface UIMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  rawContent: string;
-  iterations?: AgentIteration[];
-  parts?: MessagePart[];
-}
+/** Tool execution status for streaming updates */
+export type ToolStatus = 'queued' | 'running' | 'completed';
 
 /** Single iteration of the agentic loop */
 export interface AgentIteration {
@@ -33,15 +27,26 @@ export interface AgentIteration {
   toolOutput?: string;
 }
 
+/** Token and timing statistics for a message */
+export interface MessageStats {
+  promptTokens?: number;
+  completionTokens?: number;
+  cachedTokens?: number;
+  reasoningTokens?: number;
+  executionTimeMs?: number;
+  tokensUnavailable?: boolean;
+}
+
 /** Message part types stored in the database */
 export type MessagePart =
-  | { type: 'text'; content: string }
+  | { type: 'text'; content: string; toolStatus?: ToolStatus }
   | { type: 'reasoning'; content: string }
   | {
       type: 'tool';  // Legacy shell tool (deprecated)
       command: string;
-      commandId: string;
+      commandId?: string;
       content: string;  // Result
+      toolStatus?: ToolStatus;
     }
   | {
       type: 'agent-tool';  // AI SDK tools (search, url_context, shell)
@@ -49,19 +54,44 @@ export type MessagePart =
       toolArgs: Record<string, unknown>;
       toolCallId: string;
       content: string;  // Result
+      toolStatus?: ToolStatus;
     }
   | {
       type: 'sources';  // Grounding citations from Gemini
       sources: Array<{ id: string; url: string; title: string }>;
     };
 
-/** Database storage format (matches UIMessage structure) */
-export interface DBMessage {
+/**
+ * Unified message type - single source of truth for all message formats.
+ *
+ * Used for:
+ * - Frontend display (useForgeChat)
+ * - Database storage
+ * - API wire format
+ *
+ * Field optionality:
+ * - id: Required in frontend, absent in wire format
+ * - parts: Always provided by frontend, may be absent in legacy data
+ * - timestamp/stats/agent/rawPayload: Runtime fields populated in frontend
+ */
+export interface Message {
+  id?: string;
   role: 'user' | 'assistant';
   rawContent: string;
-  iterations?: AgentIteration[];
   parts?: MessagePart[];
+  iterations?: AgentIteration[];
+  // Runtime fields (populated in frontend, not in wire format)
+  timestamp?: Date;
+  stats?: MessageStats;
+  agent?: 'task' | 'skill';
+  rawPayload?: unknown[];
 }
+
+// Legacy aliases for backwards compatibility
+/** @deprecated Use Message instead */
+export type UIMessage = Message & { id: string };
+/** @deprecated Use Message instead */
+export type DBMessage = Message;
 
 // ============================================================================
 // Parts to Iteration Extraction
@@ -97,10 +127,10 @@ export function partsToIteration(
 // ============================================================================
 
 /**
- * Convert UI/DB messages to AI SDK ModelMessage format with proper tool structure.
+ * Convert messages to AI SDK ModelMessage format with proper tool structure.
  * Preserves tool-call/tool-result structure for KV cache efficiency.
  */
-export function toModelMessages(messages: Array<DBMessage | UIMessage>): ModelMessage[] {
+export function toModelMessages(messages: Message[]): ModelMessage[] {
   const result: ModelMessage[] = [];
 
   for (const message of messages) {
@@ -164,7 +194,7 @@ export function toModelMessages(messages: Array<DBMessage | UIMessage>): ModelMe
 }
 
 /**
- * Convert DB messages to a human-readable transcript string.
+ * Convert messages to a human-readable transcript string.
  * Used by the skill agent for transcript processing.
  *
  * Processes the `parts` array which contains the full execution history:
@@ -172,7 +202,7 @@ export function toModelMessages(messages: Array<DBMessage | UIMessage>): ModelMe
  * - agent-tool: Tool calls with name, args, and output
  * - text: Plain text responses
  */
-export function toTranscriptString(messages: DBMessage[]): string {
+export function toTranscriptString(messages: Message[]): string {
   const output: string[] = [];
 
   for (const m of messages) {

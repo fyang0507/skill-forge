@@ -1,27 +1,43 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { partsToIteration } from '@/lib/messages/transform';
+import {
+  partsToIteration,
+  type Message as BaseMessage,
+  type MessagePart as BaseMessagePart,
+  type MessageStats,
+  type AgentIteration,
+  type ToolStatus,
+} from '@/lib/messages/transform';
 
+// Re-export types for consumers that import from useForgeChat
+export type { MessageStats, AgentIteration, ToolStatus };
+
+/**
+ * Frontend-friendly MessagePart interface.
+ * Uses a flat structure with optional properties for easier access in UI components.
+ * Compatible with the discriminated union in transform.ts.
+ */
 export interface MessagePart {
   type: 'text' | 'reasoning' | 'tool' | 'agent-tool' | 'sources';
   content: string;
-  command?: string; // For shell tool parts
-  commandId?: string; // Unique identifier for command tracking
-  toolStatus?: 'queued' | 'running' | 'completed'; // For shell tool parts
-  toolName?: string; // For agent tool parts (google_search, url_context)
+  command?: string;
+  commandId?: string;
+  toolStatus?: ToolStatus;
+  toolName?: string;
   toolArgs?: Record<string, unknown>;
   toolCallId?: string;
-  sources?: Array<{ id: string; url: string; title: string }>; // For source citations
+  sources?: Array<{ id: string; url: string; title: string }>;
 }
 
-export interface MessageStats {
-  promptTokens?: number;
-  completionTokens?: number;
-  cachedTokens?: number;
-  reasoningTokens?: number;
-  executionTimeMs?: number;
-  tokensUnavailable?: boolean; // True when Braintrust stats couldn't be fetched
+/**
+ * Frontend message type with required fields for UI display.
+ * Extends the base Message type with fields that are always present in the frontend.
+ */
+export interface Message extends Omit<BaseMessage, 'parts'> {
+  id: string;           // Always present in frontend
+  parts: MessagePart[]; // Always present in frontend, using flat interface
+  timestamp: Date;      // Always present in frontend
 }
 
 export interface CumulativeStats {
@@ -31,25 +47,7 @@ export interface CumulativeStats {
   totalReasoningTokens: number;
   totalExecutionTimeMs: number;
   messageCount: number;
-  tokensUnavailableCount: number; // Messages where token stats couldn't be fetched
-}
-
-// Represents one iteration of the agentic loop (model output + optional tool execution)
-export interface AgentIteration {
-  rawContent: string;          // Model output for this iteration
-  toolOutput?: string;         // Tool output that follows (if any)
-}
-
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  parts: MessagePart[];
-  rawContent: string;          // For user messages: the input. For assistant: legacy/unused
-  timestamp: Date;
-  stats?: MessageStats;
-  iterations?: AgentIteration[];  // For assistant messages: each agentic loop iteration
-  agent?: 'task' | 'skill';      // Which agent generated this message
-  rawPayload?: unknown[];        // Raw stream parts from agent.stream() for debugging
+  tokensUnavailableCount: number;
 }
 
 export type ChatStatus = 'ready' | 'streaming' | 'error';
