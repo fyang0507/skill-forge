@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { uiToApiMessages, type UIMessage } from '@/lib/messages/transform';
+import { partsToIteration } from '@/lib/messages/transform';
 
 export interface MessagePart {
   type: 'text' | 'reasoning' | 'tool' | 'agent-tool' | 'sources';
@@ -170,17 +170,36 @@ export function useForgeChat(options?: UseForgeChatOptions) {
     // Reset refs for new message
     iterationsRef.current = [];
 
-    // Add user message
+    // Add user message - tag with agent mode so we can filter later
     const userMessage: Message = {
       id: generateId(),
       role: 'user',
       parts: [{ type: 'text', content }],
       rawContent: content,  // User content is already raw
       timestamp: new Date(),
+      agent: mode === 'codify-skill' ? 'skill' : 'task',
     };
 
-    // Build messages array for API - expand assistant iterations to match server structure
-    const apiMessages = uiToApiMessages([...messages, userMessage] as UIMessage[]);
+    // Filter messages by agent to keep task and skill conversations separate
+    // For task mode: include messages where agent is 'task' or undefined (legacy)
+    // For codify-skill mode: include only messages where agent is 'skill'
+    const targetAgent = mode === 'codify-skill' ? 'skill' : 'task';
+    const filteredMessages = [...messages, userMessage].filter((m) => {
+      // For task mode, include legacy messages (no agent field) and task messages
+      if (targetAgent === 'task') {
+        return m.agent === 'task' || m.agent === undefined;
+      }
+      // For skill mode, only include skill messages
+      return m.agent === 'skill';
+    });
+
+    // Build messages array for API - send full message format with parts
+    const apiMessages = filteredMessages.map(m => ({
+      role: m.role,
+      rawContent: m.rawContent,
+      parts: m.parts,
+      iterations: m.iterations,
+    }));
 
     setMessages((prev) => [...prev, userMessage]);
 
@@ -192,7 +211,7 @@ export function useForgeChat(options?: UseForgeChatOptions) {
     // Stats tracking for this message
     const messageStartTime = Date.now();
     let messageStats: MessageStats = {};
-    let messageAgent: 'task' | 'skill' = 'task';
+    let messageAgent: 'task' | 'skill' = mode === 'codify-skill' ? 'skill' : 'task';
     let messageRawPayload: unknown[] | undefined;
 
     // Helper to strip <shell> tags from text and collapse excessive whitespace
@@ -234,6 +253,7 @@ export function useForgeChat(options?: UseForgeChatOptions) {
         parts: [],
         rawContent: '',  // Will be set on 'done' event
         timestamp: new Date(),
+        agent: messageAgent,
       },
     ]);
 
@@ -451,14 +471,23 @@ export function useForgeChat(options?: UseForgeChatOptions) {
                   ? [...iterationsRef.current]
                   : undefined;
 
+                // Build iterations from parts if not already set via raw-content events
+                // This ensures assistant messages are included in expandIterations()
+                // Uses shared helper from transform.ts
+                const extractedIteration = partsToIteration(finalParts);
+                const iterationsFromParts = finalIterations ?? (extractedIteration ? [extractedIteration] : undefined);
+
+                // Extract rawContent for the message
+                const rawContentFromParts = extractedIteration?.rawContent ?? '';
+
                 const finalAssistantMessage: Message = {
                   id: assistantId,
                   role: 'assistant',
                   parts: finalParts,
-                  rawContent: '',
+                  rawContent: rawContentFromParts,
                   timestamp: new Date(),
                   stats: finalStats,
-                  iterations: finalIterations,
+                  iterations: iterationsFromParts,
                   agent: messageAgent,
                   rawPayload: messageRawPayload,
                 };

@@ -3,12 +3,16 @@
  *
  * Message formats in the system:
  * 1. UIMessage - Frontend format with parts, iterations, stats (useForgeChat)
- * 2. APIMessage - Backend internal format with role: user/assistant/tool
- * 3. ModelMessage - AI SDK format for LLM calls
- * 4. DBMessage - Database storage format with iterations
+ * 2. ModelMessage - AI SDK format for LLM calls (with proper tool-call/tool-result structure)
+ * 3. DBMessage - Database storage format with parts and iterations
  */
 
-import type { ModelMessage } from 'ai';
+import type {
+  ModelMessage,
+  TextPart,
+  ToolCallPart,
+  ToolResultPart,
+} from 'ai';
 
 // ============================================================================
 // Type Definitions
@@ -20,7 +24,7 @@ export interface UIMessage {
   role: 'user' | 'assistant';
   rawContent: string;
   iterations?: AgentIteration[];
-  // parts, timestamp, stats omitted - not needed for transformation
+  parts?: MessagePart[];
 }
 
 /** Single iteration of the agentic loop */
@@ -33,13 +37,23 @@ export interface AgentIteration {
 export type MessagePart =
   | { type: 'text'; content: string }
   | { type: 'reasoning'; content: string }
-  | { type: 'agent-tool'; toolName: string; toolArgs: Record<string, unknown>; content: string };
-
-/** Backend API route internal format */
-export interface APIMessage {
-  role: 'user' | 'assistant' | 'tool';
-  content: string;
-}
+  | {
+      type: 'tool';  // Legacy shell tool (deprecated)
+      command: string;
+      commandId: string;
+      content: string;  // Result
+    }
+  | {
+      type: 'agent-tool';  // AI SDK tools (search, url_context, shell)
+      toolName: string;
+      toolArgs: Record<string, unknown>;
+      toolCallId: string;
+      content: string;  // Result
+    }
+  | {
+      type: 'sources';  // Grounding citations from Gemini
+      sources: Array<{ id: string; url: string; title: string }>;
+    };
 
 /** Database storage format (matches UIMessage structure) */
 export interface DBMessage {
@@ -50,50 +64,32 @@ export interface DBMessage {
 }
 
 // ============================================================================
-// Flattening: Expand iterations into sequential messages
+// Parts to Iteration Extraction
 // ============================================================================
 
 /**
- * Expand a message with iterations into a flat sequence of messages.
- * This is the core transformation used by multiple consumers.
- *
- * For user messages: returns single message
- * For assistant messages with iterations: returns [assistant, tool?, assistant, tool?, ...]
+ * Extract iteration data (rawContent + toolOutput) from message parts.
+ * Works with both UI MessagePart and DB MessagePart formats.
+ * Used by useForgeChat to build iterations for API calls.
  */
-export function expandIterations(
-  message: DBMessage | UIMessage,
-  toolMessageRole: 'user' | 'tool' = 'user',
-  toolPrefix: string = '[Shell Output]\n'
-): APIMessage[] {
-  const result: APIMessage[] = [];
+export function partsToIteration(
+  parts: Array<{ type: string; content?: string }>
+): AgentIteration | undefined {
+  const rawContent = parts
+    .filter((p) => p.type === 'text')
+    .map((p) => p.content || '')
+    .join('\n')
+    .trim();
 
-  if (message.role === 'user') {
-    result.push({ role: 'user', content: message.rawContent });
-  } else if (message.iterations && message.iterations.length > 0) {
-    for (const iter of message.iterations) {
-      result.push({ role: 'assistant', content: iter.rawContent });
-      if (iter.toolOutput) {
-        result.push({
-          role: toolMessageRole,
-          content: toolPrefix + iter.toolOutput,
-        });
-      }
-    }
-  }
-  // Skip assistant messages without iterations (legacy/incomplete)
+  if (!rawContent) return undefined;
 
-  return result;
-}
+  const toolOutput = parts
+    .filter((p) => p.type === 'tool' || p.type === 'agent-tool')
+    .map((p) => p.content || '')
+    .filter(Boolean)
+    .join('\n') || undefined;
 
-/**
- * Expand an array of messages with iterations into flat API messages.
- */
-export function expandAllIterations(
-  messages: Array<DBMessage | UIMessage>,
-  toolMessageRole: 'user' | 'tool' = 'user',
-  toolPrefix: string = '[Shell Output]\n'
-): APIMessage[] {
-  return messages.flatMap((m) => expandIterations(m, toolMessageRole, toolPrefix));
+  return { rawContent, toolOutput };
 }
 
 // ============================================================================
@@ -101,28 +97,70 @@ export function expandAllIterations(
 // ============================================================================
 
 /**
- * Convert API messages to AI SDK ModelMessage format.
- * Used by the agent route to prepare messages for LLM calls.
+ * Convert UI/DB messages to AI SDK ModelMessage format with proper tool structure.
+ * Preserves tool-call/tool-result structure for KV cache efficiency.
  */
-export function toModelMessages(messages: APIMessage[]): ModelMessage[] {
-  return messages.map((m): ModelMessage => {
-    if (m.role === 'user') {
-      return { role: 'user', content: m.content };
-    }
-    if (m.role === 'assistant') {
-      return { role: 'assistant', content: m.content };
-    }
-    // Tool results - convert to user role with prefix for models that don't support tool role
-    return { role: 'user', content: m.content };
-  });
-}
+export function toModelMessages(messages: Array<DBMessage | UIMessage>): ModelMessage[] {
+  const result: ModelMessage[] = [];
 
-/**
- * Convert UI messages to API request format.
- * Used by useForgeChat to send messages to the backend.
- */
-export function uiToApiMessages(messages: UIMessage[]): Array<{ role: string; content: string }> {
-  return expandAllIterations(messages, 'user', '[Shell Output]\n');
+  for (const message of messages) {
+    if (message.role === 'user') {
+      result.push({ role: 'user', content: message.rawContent });
+      continue;
+    }
+
+    // Handle legacy messages with iterations but no parts
+    if (!message.parts?.length) {
+      if (message.iterations?.length) {
+        // Fallback: convert iterations to simple text messages
+        for (const iter of message.iterations) {
+          result.push({ role: 'assistant', content: iter.rawContent });
+          if (iter.toolOutput) {
+            // Can't reconstruct proper tool format, use user role
+            result.push({ role: 'user', content: `[Tool Output]\n${iter.toolOutput}` });
+          }
+        }
+      }
+      continue;
+    }
+
+    // Build assistant message content array
+    const assistantContent: Array<TextPart | ToolCallPart> = [];
+    const toolResults: ToolResultPart[] = [];
+
+    for (const part of message.parts) {
+      if (part.type === 'text') {
+        assistantContent.push({ type: 'text', text: part.content });
+      } else if (part.type === 'agent-tool' && part.toolCallId) {
+        // Tool call goes in assistant message
+        assistantContent.push({
+          type: 'tool-call',
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
+          input: part.toolArgs,  // AI SDK uses 'input' not 'args'
+        });
+        // Tool result goes in separate tool message
+        if (part.content) {
+          toolResults.push({
+            type: 'tool-result',
+            toolCallId: part.toolCallId,
+            toolName: part.toolName,
+            output: { type: 'text', value: part.content },  // AI SDK ToolResultOutput format
+          });
+        }
+      }
+      // Skip 'reasoning', 'sources', and legacy 'tool' parts - not needed for model context
+    }
+
+    if (assistantContent.length > 0) {
+      result.push({ role: 'assistant', content: assistantContent });
+    }
+    if (toolResults.length > 0) {
+      result.push({ role: 'tool', content: toolResults });
+    }
+  }
+
+  return result;
 }
 
 /**
