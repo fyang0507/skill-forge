@@ -6,45 +6,9 @@ import { mergePlaygroundEnv } from '@/lib/tools/playground-env';
 import { runWithRequestContext } from '@/lib/agent/request-context';
 import { traced, flush } from 'braintrust';
 import { fetchTraceStats } from '@/lib/braintrust-api';
-import type { SSEEvent } from '@/lib/types/sse';
+import { createSSEStream, SSE_HEADERS } from '@/lib/sse';
 
 type AgentMode = 'task' | 'codify-skill';
-
-function createSSEStream() {
-  const encoder = new TextEncoder();
-  let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
-
-  const stream = new ReadableStream<Uint8Array>({
-    start(c) {
-      controller = c;
-    },
-  });
-
-  function send(event: SSEEvent) {
-    if (controller) {
-      try {
-        const data = `data: ${JSON.stringify(event)}\n\n`;
-        controller.enqueue(encoder.encode(data));
-      } catch {
-        // Controller already closed (client disconnected, etc.)
-        controller = null;
-      }
-    }
-  }
-
-  function close() {
-    if (controller) {
-      try {
-        controller.close();
-      } catch {
-        // Controller already closed (client disconnected, etc.)
-      }
-      controller = null;
-    }
-  }
-
-  return { stream, send, close };
-}
 
 
 export async function POST(req: Request) {
@@ -306,10 +270,6 @@ export async function POST(req: Request) {
   })();
 
   return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    },
+    headers: SSE_HEADERS,
   });
 }
