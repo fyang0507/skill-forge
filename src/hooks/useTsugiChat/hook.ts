@@ -9,33 +9,21 @@ import type {
   CumulativeStats,
   ChatStatus,
   SandboxStatus,
-  UseForgeChatOptions,
-} from './useForgeChat/types';
+  UseTsugiChatOptions,
+} from './types';
 import {
   generateMessageId,
   createUserMessage,
   createInitialAssistantMessage,
   stripShellTags,
-} from './useForgeChat/message-builders';
+} from './message-builders';
 import {
   createEmptyStats,
   calculateCumulativeStats,
   updateCumulativeStats,
-} from './useForgeChat/stats-utils';
+} from './stats-utils';
 
-// Re-export types for consumers that import from useForgeChat
-export type {
-  Message,
-  MessagePart,
-  CumulativeStats,
-  ChatStatus,
-  SandboxStatus,
-  UseForgeChatOptions,
-  MessageStats,
-};
-export type { ToolStatus } from '@/lib/messages/transform';
-
-export function useForgeChat(options?: UseForgeChatOptions) {
+export function useTsugiChat(options?: UseTsugiChatOptions) {
   const [messages, setMessages] = useState<Message[]>(options?.initialMessages ?? []);
   const [status, setStatus] = useState<ChatStatus>('ready');
   const [error, setError] = useState<string | null>(null);

@@ -1,5 +1,5 @@
 /**
- * Frontend-specific types for useForgeChat hook.
+ * Frontend-specific types for useTsugiChat hook.
  * Intentionally uses flat interfaces for easier UI consumption.
  */
 import type {
@@ -51,7 +51,7 @@ export interface CumulativeStats {
 export type ChatStatus = 'ready' | 'streaming' | 'error';
 export type SandboxStatus = 'disconnected' | 'connected';
 
-export interface UseForgeChatOptions {
+export interface UseTsugiChatOptions {
   initialMessages?: Message[];
   onMessageComplete?: (message: Message, index: number) => void;
 }

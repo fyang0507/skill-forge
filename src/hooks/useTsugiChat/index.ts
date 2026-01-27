@@ -1,5 +1,5 @@
-// Re-export main hook from parent
-export { useForgeChat } from '../useForgeChat';
+// Re-export main hook
+export { useTsugiChat } from './hook';
 
 // Re-export types
 export type {
@@ -8,7 +8,7 @@ export type {
   CumulativeStats,
   ChatStatus,
   SandboxStatus,
-  UseForgeChatOptions,
+  UseTsugiChatOptions,
   MessageStats,
   ToolStatus,
 } from './types';

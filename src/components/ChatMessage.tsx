@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Message, MessagePart } from '@/hooks/useForgeChat';
+import { Message, MessagePart } from '@/hooks/useTsugiChat';
 import { MessageStats } from './MessageStats';
 
 export interface SkillSuggestion {

@@ -4,7 +4,7 @@ import type { SSEEvent } from '@/lib/types/sse';
  * Parses an SSE stream from a fetch Response.
  * Handles buffering, line splitting, and JSON parsing.
  *
- * Extracted from useForgeChat.ts (stream reading loop).
+ * Extracted from useTsugiChat.ts (stream reading loop).
  * Note: Event handling stays in the hook as it mutates React state.
  */
 export async function parseSSEStream(

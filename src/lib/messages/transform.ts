@@ -2,7 +2,7 @@
  * Centralized message transformation utilities.
  *
  * Message formats in the system:
- * 1. UIMessage - Frontend format with parts, stats (useForgeChat)
+ * 1. UIMessage - Frontend format with parts, stats (useTsugiChat)
  * 2. ModelMessage - AI SDK format for LLM calls (with proper tool-call/tool-result structure)
  * 3. DBMessage - Database storage format with parts
  */
@@ -59,7 +59,7 @@ export type MessagePart =
  * Unified message type - single source of truth for all message formats.
  *
  * Used for:
- * - Frontend display (useForgeChat)
+ * - Frontend display (useTsugiChat)
  * - Database storage
  * - API wire format
  *
