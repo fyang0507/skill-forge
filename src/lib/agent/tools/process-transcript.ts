@@ -2,7 +2,7 @@ import { getConversation } from '@/lib/db';
 import { toTranscriptString } from '@/lib/messages/transform';
 import { getSandboxExecutor } from '@/lib/sandbox/executor';
 import { getFlashModel } from '../model-provider';
-import { getGenerateText } from '../braintrust-wrapper';
+import { getStreamText } from '../braintrust-wrapper';
 
 const TRANSCRIPT_PROCESSING_PROMPT = `You are a transcript processor. Analyze this task conversation and produce a structured summary optimized for skill codification.
 
@@ -103,8 +103,8 @@ export async function processTranscript(
   const prompt = TRANSCRIPT_PROCESSING_PROMPT.replace('{files-generated}', filesGenerated) + rawTranscript;
 
   // Process with Gemini Flash
-  const generateText = getGenerateText();
-  const generated = await generateText({
+  const streamText = getStreamText();
+  const generated = await streamText({
     model: getFlashModel(),
     prompt,
   });

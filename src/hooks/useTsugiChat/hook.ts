@@ -67,10 +67,14 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
   const initialMessages = useMemo(() => options?.initialMessages ?? [], [options?.initialMessages]);
 
   // Create transport with dynamic body - using a function for body to get latest params
-  const transport = useMemo(() => new DefaultChatTransport<Message>({
-    api: '/api/agent',
-    body: () => bodyParamsRef.current,
-  }), []);
+  // Note: bodyParamsRef is captured by reference (not .current) to avoid accessing ref during render
+  const transport = useMemo(() => {
+    const paramsRef = bodyParamsRef;
+    return new DefaultChatTransport<Message>({
+      api: '/api/agent',
+      body: () => paramsRef.current,
+    });
+  }, []);
 
   // AI SDK useChat hook with typed data parts
   const chat = useChat<Message>({
@@ -155,26 +159,28 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
       setCumulativeStats(calculateCumulativeStats(options.initialMessages));
       prevMessageCountRef.current = options.initialMessages.length;
     }
-  }, [options?.initialMessages, chat.setMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chat.setMessages is stable
+  }, [options?.initialMessages]);
 
   // Track message changes and call onMessageComplete for user messages
+  const onMessageComplete = options?.onMessageComplete;
   useEffect(() => {
     const currentCount = chat.messages.length;
     const prevCount = prevMessageCountRef.current;
 
     // Check for new messages
-    if (currentCount > prevCount && options?.onMessageComplete) {
+    if (currentCount > prevCount && onMessageComplete) {
       // Find new user messages (assistant messages are handled in onFinish)
       for (let i = prevCount; i < currentCount; i++) {
         const message = chat.messages[i];
         if (message.role === 'user') {
-          options.onMessageComplete(message as Message, i);
+          onMessageComplete(message as Message, i);
         }
       }
     }
 
     prevMessageCountRef.current = currentCount;
-  }, [chat.messages, options?.onMessageComplete]);
+  }, [chat.messages, onMessageComplete]);
 
   // Derive status from chat.status
   const status: ChatStatus = chat.status === 'streaming' || chat.status === 'submitted'
