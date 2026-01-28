@@ -6,7 +6,7 @@ export interface DbMessage {
   id: string;
   conversation_id: string;
   role: 'user' | 'assistant';
-  content: string;      // User: plain text. Assistant: JSON AgentIteration[]
+  content: string;      // User: plain text. Assistant: JSON
   metadata: string | null;  // JSON: { stats?: MessageStats }
   timestamp: number;
   sequence_order: number;
@@ -155,11 +155,10 @@ export async function deleteConversation(id: string): Promise<void> {
 
 /**
  * Save a single message
- * Supports both AI SDK format (createdAt) and legacy format (timestamp)
  */
 export async function saveMessage(
   conversationId: string,
-  message: Message & { id: string; createdAt?: Date; timestamp?: Date },
+  message: Message & { id: string; createdAt?: Date },
   sequenceOrder: number
 ): Promise<void> {
   const client = getDb();
@@ -169,7 +168,7 @@ export async function saveMessage(
   if (message.role === 'user') {
     // AI SDK format: extract from text part
     const textPart = message.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text');
-    userContent = textPart?.text || message.rawContent || message.content || '';
+    userContent = textPart?.text || message.content || '';
   }
 
   // Content format differs by role
@@ -178,18 +177,15 @@ export async function saveMessage(
     ? userContent
     : JSON.stringify({ parts: message.parts || [] });
 
-  // Get stats from either direct field or metadata
-  const stats = message.stats || message.metadata?.stats;
+  const stats = message.metadata?.stats;
   const metadata = stats ? JSON.stringify({ stats }) : null;
 
   const rawPayload = message.rawPayload ? JSON.stringify(message.rawPayload) : null;
 
-  // Support both AI SDK (createdAt) and legacy (timestamp) formats
-  const messageTime = message.createdAt || message.timestamp || new Date();
+  const messageTime = message.createdAt || new Date();
   const timestamp = messageTime instanceof Date ? messageTime.getTime() : Date.now();
 
-  // Get agent from either direct field or metadata
-  const agent = message.agent || message.metadata?.agent || 'task';
+  const agent = message.metadata?.agent || 'task';
 
   await client.execute({
     sql: `INSERT OR REPLACE INTO messages (id, conversation_id, role, content, metadata, timestamp, sequence_order, agent, raw_payload)
@@ -228,18 +224,11 @@ export function hydrateMessage(row: DbMessage): Message {
       id: row.id,
       role: row.role,
       parts: [{ type: 'text', text: row.content }],
-      // AI SDK uses createdAt
       createdAt: new Date(row.timestamp),
-      // Store in metadata for AI SDK compatibility
       metadata: {
         stats: metadata.stats,
         agent: row.agent,
       },
-      // Legacy fields for backward compatibility
-      rawContent: row.content,
-      timestamp: new Date(row.timestamp),
-      stats: metadata.stats,
-      agent: row.agent,
       rawPayload,
     };
   }
@@ -250,18 +239,11 @@ export function hydrateMessage(row: DbMessage): Message {
     id: row.id,
     role: row.role,
     parts,
-    // AI SDK uses createdAt
     createdAt: new Date(row.timestamp),
-    // Store in metadata for AI SDK compatibility
     metadata: {
       stats: metadata.stats,
       agent: row.agent,
     },
-    // Legacy fields for backward compatibility
-    rawContent: '',
-    timestamp: new Date(row.timestamp),
-    stats: metadata.stats,
-    agent: row.agent,
     rawPayload,
   };
 }

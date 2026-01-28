@@ -13,9 +13,6 @@
 // Type Definitions
 // ============================================================================
 
-/** Tool execution status for streaming updates */
-export type ToolStatus = 'queued' | 'running' | 'completed';
-
 /** Token and timing statistics for a message */
 export interface MessageStats {
   promptTokens?: number;
@@ -51,16 +48,8 @@ export interface Message {
   id?: string;
   role: 'user' | 'assistant';
   parts?: AISDKMessagePart[];
-  // Legacy field for backward compatibility during migration
-  rawContent?: string;
   content?: string;
-  // AI SDK format
   createdAt?: Date;
-  // Legacy format
-  timestamp?: Date;
-  // Metadata
-  stats?: MessageStats;
-  agent?: 'task' | 'skill';
   rawPayload?: unknown[];
   metadata?: {
     agent?: 'task' | 'skill';

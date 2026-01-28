@@ -95,8 +95,8 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
       // Handle transient sandbox events
       if (part.type === 'data-sandbox') {
         const data = part.data as SandboxData;
-        if (data.status === 'sandbox_created' || data.status === 'sandbox_active') {
-          // Sandbox was created or reconnected - store its ID
+        if (data.status === 'sandbox_created') {
+          // Sandbox was created - store its ID
           setSandboxStatus('connected');
           if (data.sandboxId) {
             setCurrentSandboxId(data.sandboxId);

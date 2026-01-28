@@ -72,11 +72,9 @@ export function useConversations() {
       const data = await response.json();
       return {
         conversation: data.conversation,
-        // AI SDK uses createdAt instead of timestamp
-        messages: data.messages.map((m: Message & { createdAt?: string; timestamp?: string }) => ({
+        messages: data.messages.map((m: Message & { createdAt?: string }) => ({
           ...m,
-          // Support both AI SDK format (createdAt) and legacy format (timestamp)
-          createdAt: m.createdAt ? new Date(m.createdAt) : (m.timestamp ? new Date(m.timestamp) : new Date()),
+          createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
         })),
       };
     } catch (error) {

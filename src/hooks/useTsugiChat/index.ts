@@ -10,13 +10,11 @@ export type {
   SandboxData,
   UsageData,
   ToolProgressData,
-  LegacyMessagePart,
   CumulativeStats,
   ChatStatus,
   SandboxStatus,
   UseTsugiChatOptions,
   MessageStats,
-  ToolStatus,
 } from './types';
 
 // Re-export utilities
@@ -25,7 +23,6 @@ export {
   createUserMessage,
   createInitialAssistantMessage,
   stripShellTags,
-  finalizeTextPart,
 } from './message-builders';
 
 export {

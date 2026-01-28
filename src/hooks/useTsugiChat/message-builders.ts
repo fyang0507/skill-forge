@@ -1,4 +1,4 @@
-import type { Message, LegacyMessagePart, MessageMetadata } from './types';
+import type { Message, MessageMetadata } from './types';
 
 /**
  * Generate a unique message ID
@@ -49,19 +49,4 @@ export function stripShellTags(text: string): string {
     .replace(/<shell>[\s\S]*?<\/shell>/g, '') // Remove complete shell tags
     .replace(/<shell>[\s\S]*$/g, '') // Remove incomplete shell tag at end
     .replace(/\n{3,}/g, '\n\n'); // Collapse 3+ newlines to 2
-}
-
-/**
- * Finalize text content and add to parts array if non-empty.
- * @deprecated Use AI SDK message handling instead
- */
-export function finalizeTextPart(
-  parts: LegacyMessagePart[],
-  textContent: string
-): LegacyMessagePart[] {
-  const strippedText = stripShellTags(textContent).trim();
-  if (strippedText) {
-    return [...parts, { type: 'text', content: strippedText }];
-  }
-  return parts;
 }

@@ -13,13 +13,11 @@ export type { MessageStats };
  *
  * Lifecycle:
  * - sandbox_created: New sandbox was created for this conversation
- * - sandbox_active: Reconnected to existing sandbox (legacy, treated same as created)
  * - sandbox_terminated: Sandbox was stopped (user abort or explicit cleanup)
  * - sandbox_timeout: Sandbox timed out due to inactivity (10 min idle)
  */
 export type SandboxStatusType =
   | 'sandbox_created'
-  | 'sandbox_active'
   | 'sandbox_terminated'
   | 'sandbox_timeout';
 
@@ -78,29 +76,6 @@ export type Message = BaseUIMessage<MessageMetadata, TsugiDataTypes>;
  * Message part type for our custom message type.
  */
 export type MessagePart = UIMessagePart<TsugiDataTypes, Record<string, never>>;
-
-/**
- * Tool status for backward compatibility with existing components.
- * Maps to AI SDK tool states.
- */
-export type ToolStatus = 'queued' | 'running' | 'completed';
-
-/**
- * Legacy MessagePart interface for backward compatibility.
- * Components should migrate to using AI SDK part types directly.
- * @deprecated Use AI SDK UIMessagePart types instead
- */
-export interface LegacyMessagePart {
-  type: 'text' | 'reasoning' | 'tool' | 'agent-tool' | 'sources';
-  content: string;
-  command?: string;
-  commandId?: string;
-  toolStatus?: ToolStatus;
-  toolName?: string;
-  toolArgs?: Record<string, unknown>;
-  toolCallId?: string;
-  sources?: Array<{ id: string; url: string; title: string }>;
-}
 
 export interface CumulativeStats {
   totalPromptTokens: number;
