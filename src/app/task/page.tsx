@@ -26,7 +26,7 @@ function LoadingState() {
   );
 }
 
-export default function ForgePage() {
+export default function TsugiPage() {
   return (
     <Suspense fallback={<LoadingState />}>
       <TsugiChat />
