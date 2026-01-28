@@ -13,6 +13,7 @@ import type {
   MessageMetadata,
   SandboxData,
   UsageData,
+  ToolProgressData,
 } from './types';
 import { createEmptyStats, calculateCumulativeStats } from './stats-utils';
 
@@ -36,6 +37,12 @@ const dataPartSchemas = {
     executionTimeMs: z.number(),
     agent: z.enum(['task', 'skill']),
   }),
+  'tool-progress': z.object({
+    toolName: z.string(),
+    status: z.enum(['streaming', 'complete']),
+    delta: z.string().optional(),
+    text: z.string().optional(),
+  }),
 };
 
 export function useTsugiChat(options?: UseTsugiChatOptions) {
@@ -46,6 +53,9 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
 
   // Cumulative stats across all messages
   const [cumulativeStats, setCumulativeStats] = useState<CumulativeStats>(createEmptyStats());
+
+  // Tool progress state for streaming tool output (transient - not persisted)
+  const [toolProgress, setToolProgress] = useState<Map<string, string>>(new Map());
 
   // Track previous message count for onMessageComplete callbacks
   const prevMessageCountRef = useRef(0);
@@ -100,6 +110,26 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
           setSandboxTimeoutMessage(data.reason || 'Sandbox timed out due to inactivity.');
           setSandboxStatus('disconnected');
           setCurrentSandboxId(null);
+        }
+      }
+      // Handle tool progress events for streaming tool output
+      if (part.type === 'data-tool-progress') {
+        const data = part.data as ToolProgressData;
+        if (data.status === 'streaming' && data.delta) {
+          // Accumulate deltas by tool name
+          setToolProgress((prev) => {
+            const newMap = new Map(prev);
+            const existing = newMap.get(data.toolName) || '';
+            newMap.set(data.toolName, existing + data.delta);
+            return newMap;
+          });
+        } else if (data.status === 'complete') {
+          // Clear progress for this tool when complete
+          setToolProgress((prev) => {
+            const newMap = new Map(prev);
+            newMap.delete(data.toolName);
+            return newMap;
+          });
         }
       }
     },
@@ -160,6 +190,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
       setCurrentSandboxId(null);
       setSandboxStatus('disconnected');
       setCumulativeStats(calculateCumulativeStats(options.initialMessages));
+      setToolProgress(new Map());
       prevMessageCountRef.current = options.initialMessages.length;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chat.setMessages is stable
@@ -232,6 +263,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
     setCurrentSandboxId(null);
     setSandboxStatus('disconnected');
     setCumulativeStats(createEmptyStats());
+    setToolProgress(new Map());
     prevMessageCountRef.current = 0;
   }, [chat]);
 
@@ -263,5 +295,8 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
     currentSandboxId,
     setCurrentSandboxId,
     sandboxStatus,
+
+    // Tool progress for streaming tool output
+    toolProgress,
   };
 }

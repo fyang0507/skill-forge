@@ -19,6 +19,7 @@ interface ChatMessageProps {
   message: Message;
   onCodifySkill?: (suggestion: SkillSuggestion) => void;
   isCodifying?: boolean;
+  toolProgress?: Map<string, string>;
 }
 
 /**
@@ -259,7 +260,7 @@ function LoadingSpinner({ className }: { className?: string }) {
 }
 
 // Render AI SDK tool part (search, analyze_url, shell, get_processed_transcript) - collapsible
-function ToolPartView({ part }: { part: AIToolPart }) {
+function ToolPartView({ part, streamingContent }: { part: AIToolPart; streamingContent?: string }) {
   const [expanded, setExpanded] = useState(false);
 
   const toolName = getToolNameFromPartType(part.type);
@@ -278,9 +279,12 @@ function ToolPartView({ part }: { part: AIToolPart }) {
   const isLoading = part.state === 'input-streaming' || part.state === 'input-available';
   const hasError = part.state === 'output-error';
   const result = part.output;
+  // Use streaming content while loading, fall back to final result
   const resultContent = hasError
     ? part.errorText || 'Error'
-    : typeof result === 'string' ? result : (result ? JSON.stringify(result, null, 2) : '');
+    : isLoading && streamingContent
+      ? streamingContent
+      : typeof result === 'string' ? result : (result ? JSON.stringify(result, null, 2) : '');
 
   // Color coding based on tool type
   const getToolStyles = () => {
@@ -484,7 +488,7 @@ function TextPartView({ content }: { content: string }): React.ReactNode {
   return <MarkdownContent>{content}</MarkdownContent>;
 }
 
-export default function ChatMessage({ message, onCodifySkill, isCodifying }: ChatMessageProps) {
+export default function ChatMessage({ message, onCodifySkill, isCodifying, toolProgress }: ChatMessageProps) {
   // User message - extract text from first text part
   if (message.role === 'user') {
     const firstPart = message.parts?.[0];
@@ -544,7 +548,10 @@ export default function ChatMessage({ message, onCodifySkill, isCodifying }: Cha
               }
               // AI SDK tool part - type starts with 'tool-'
               if (part.type.startsWith('tool-')) {
-                return <ToolPartView key={index} part={part as unknown as AIToolPart} />;
+                const toolPart = part as unknown as AIToolPart;
+                const toolName = getToolNameFromPartType(toolPart.type);
+                const streamingContent = toolProgress?.get(toolName);
+                return <ToolPartView key={index} part={toolPart} streamingContent={streamingContent} />;
               }
               // AI SDK text part - uses .text property
               if (part.type === 'text') {

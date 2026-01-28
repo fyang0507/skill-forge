@@ -3,6 +3,7 @@ import { toTranscriptString } from '@/lib/messages/transform';
 import { getSandboxExecutor } from '@/lib/sandbox/executor';
 import { getFlashModel } from '../model-provider';
 import { getStreamText } from '../braintrust-wrapper';
+import { emitToolProgress } from '../request-context';
 
 const TRANSCRIPT_PROCESSING_PROMPT = `You are a transcript processor. Analyze this task conversation and produce a structured summary optimized for skill codification.
 
@@ -72,14 +73,14 @@ export async function processTranscript(
   sandboxId?: string
 ): Promise<string> {
   // Fetch messages from database
-  const result = await getConversation(conversationId);
+  const conversation = await getConversation(conversationId);
 
-  if (!result) {
+  if (!conversation) {
     return 'Error: Conversation not found';
   }
 
   // Build transcript from messages using centralized transform utility
-  const rawTranscript = toTranscriptString(result.messages);
+  const rawTranscript = toTranscriptString(conversation.messages);
 
   if (!rawTranscript.trim()) {
     return 'Error: No messages found in conversation';
@@ -102,12 +103,19 @@ export async function processTranscript(
   // Build final prompt with file listing injected
   const prompt = TRANSCRIPT_PROCESSING_PROMPT.replace('{files-generated}', filesGenerated) + rawTranscript;
 
-  // Process with Gemini Flash
+  // Process with Gemini Flash - stream deltas to frontend for real-time updates
   const streamText = getStreamText();
-  const generated = await streamText({
+  const streamResult = streamText({
     model: getFlashModel(),
     prompt,
   });
 
-  return generated.text;
+  let accumulated = '';
+  for await (const chunk of streamResult.textStream) {
+    accumulated += chunk;
+    emitToolProgress('get_processed_transcript', { status: 'streaming', delta: chunk });
+  }
+
+  emitToolProgress('get_processed_transcript', { status: 'complete', text: accumulated });
+  return accumulated;
 }

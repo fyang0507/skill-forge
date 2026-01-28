@@ -41,11 +41,22 @@ export interface UsageData {
 }
 
 /**
+ * Tool progress data for streaming tool output to frontend.
+ */
+export interface ToolProgressData {
+  toolName: string;
+  status: 'streaming' | 'complete';
+  delta?: string;
+  text?: string;
+}
+
+/**
  * Custom data types for AI SDK useChat.
  */
 export type TsugiDataTypes = {
   sandbox: SandboxData;
   usage: UsageData;
+  'tool-progress': ToolProgressData;
 };
 
 /**

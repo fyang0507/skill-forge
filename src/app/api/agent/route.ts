@@ -51,7 +51,8 @@ export async function POST(req: Request) {
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       // Wrap with request context so skill agent's tool can access conversationId/sandboxId/env
-      await runWithRequestContext({ conversationId, sandboxId: currentSandboxId, env: mergedEnv }, async () => {
+      // Also pass writer so nested tools can emit progress updates
+      await runWithRequestContext({ conversationId, sandboxId: currentSandboxId, env: mergedEnv, streamWriter: writer }, async () => {
         try {
           // Create agent per-request INSIDE request context so it picks up user-provided API key
           let agent;

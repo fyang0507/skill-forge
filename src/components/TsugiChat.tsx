@@ -337,7 +337,7 @@ export default function TsugiChat() {
     },
   }), [loadedMessages, saveMessage, renameConversation]);
 
-  const { messages, status, error, cumulativeStats, sendMessage, clearMessages, stop, sandboxTimeoutMessage, clearSandboxTimeout, sandboxStatus } = useTsugiChat(tsugiCahtOptions);
+  const { messages, status, error, cumulativeStats, sendMessage, clearMessages, stop, sandboxTimeoutMessage, clearSandboxTimeout, sandboxStatus, toolProgress } = useTsugiChat(tsugiCahtOptions);
 
   const isStreaming = status === 'streaming';
 
@@ -803,12 +803,13 @@ export default function TsugiChat() {
                 ) : (
                   // Messages list
                   <div className="space-y-4">
-                    {messages.map((message) => (
+                    {messages.map((message, idx) => (
                       <ChatMessage
                         key={message.id}
                         message={message}
                         onCodifySkill={(suggestion) => handleCodifySkill(message.id, suggestion)}
                         isCodifying={codifyingMessageId === message.id}
+                        toolProgress={idx === messages.length - 1 ? toolProgress : undefined}
                       />
                     ))}
                     <div ref={messagesEndRef} />

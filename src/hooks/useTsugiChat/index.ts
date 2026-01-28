@@ -9,6 +9,7 @@ export type {
   TsugiDataTypes,
   SandboxData,
   UsageData,
+  ToolProgressData,
   LegacyMessagePart,
   CumulativeStats,
   ChatStatus,

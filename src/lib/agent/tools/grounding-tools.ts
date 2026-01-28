@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { google } from '@ai-sdk/google';
 import { getFlashModel } from '../model-provider';
 import { getStreamText } from '../braintrust-wrapper';
+import { emitToolProgress } from '../request-context';
 
 /**
  * Wrapped Google Search tool that makes a nested API call.
@@ -21,12 +22,21 @@ RULES:
   execute: async ({ query }: { query: string }): Promise<string> => {
     const streamText = getStreamText();
     try {
-      const result = await streamText({
+      const result = streamText({
         model: getFlashModel(),
         tools: { googleSearch: google.tools.googleSearch({}) },
         prompt: `Search the web for: "${query}". Return a concise list of summary of relevant results with the most specific urls. Focus on breadth of information.`,
       });
-      return result.text || 'No results found.';
+
+      // Stream deltas to frontend for real-time updates
+      let accumulated = '';
+      for await (const chunk of result.textStream) {
+        accumulated += chunk;
+        emitToolProgress('search', { status: 'streaming', delta: chunk });
+      }
+
+      emitToolProgress('search', { status: 'complete', text: accumulated });
+      return accumulated || 'No results found.';
     } catch (error) {
       return `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
@@ -46,12 +56,21 @@ export const analyzeUrlTool = {
   execute: async ({ url }: { url: string }): Promise<string> => {
     const streamText = getStreamText();
     try {
-      const result = await streamText({
+      const result = streamText({
         model: getFlashModel(),
         tools: { urlContext: google.tools.urlContext({}) },
         prompt: `Analyze this URL: ${url}`,
       });
-      return result.text || 'Unable to extract content.';
+
+      // Stream deltas to frontend for real-time updates
+      let accumulated = '';
+      for await (const chunk of result.textStream) {
+        accumulated += chunk;
+        emitToolProgress('analyze_url', { status: 'streaming', delta: chunk });
+      }
+
+      emitToolProgress('analyze_url', { status: 'complete', text: accumulated });
+      return accumulated || 'Unable to extract content.';
     } catch (error) {
       return `URL analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
