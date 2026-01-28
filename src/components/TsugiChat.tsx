@@ -282,6 +282,8 @@ export default function TsugiChat() {
   // Skills management
   const { skills, loading: skillsLoading, deleteSkill } = useSkills();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -336,9 +338,22 @@ export default function TsugiChat() {
 
   const isStreaming = status === 'streaming';
 
-  // Auto-scroll to bottom when messages change
+  // Track scroll position to determine if user is at bottom
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    // Consider "at bottom" if within 100px of the bottom
+    const threshold = 100;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    isAtBottomRef.current = distanceFromBottom <= threshold;
+  }, []);
+
+  // Auto-scroll to bottom when messages change, but only if already at bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isAtBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   // Focus input on mount
@@ -733,7 +748,11 @@ export default function TsugiChat() {
         ) : (
           <>
             {/* Messages area */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col"
+            >
               <div className={`w-full max-w-4xl mx-auto px-6 py-6 ${messages.length === 0 ? 'flex-1 flex flex-col' : ''}`}>
                 {/* Error banner */}
                 {error && (
