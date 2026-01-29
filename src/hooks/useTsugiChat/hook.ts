@@ -45,7 +45,9 @@ const dataPartSchemas = {
   }),
 };
 
-export function useTsugiChat(options?: UseTsugiChatOptions) {
+export function useTsugiChat(options: UseTsugiChatOptions) {
+  // Extract conversationId from options - it's stable for the component's lifetime
+  const conversationId = options.conversationId;
   // Sandbox state (transient - not persisted in messages)
   const [currentSandboxId, setCurrentSandboxId] = useState<string | null>(null);
   const [sandboxStatus, setSandboxStatus] = useState<SandboxStatus>('disconnected');
@@ -74,7 +76,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
   });
 
   // Memoize initial messages to prevent unnecessary re-renders
-  const initialMessages = useMemo(() => options?.initialMessages ?? [], [options?.initialMessages]);
+  const initialMessages = useMemo(() => options.initialMessages ?? [], [options.initialMessages]);
 
   // Refs to allow custom fetch to access state setters without recreating transport
   const setCurrentSandboxIdRef = useRef(setCurrentSandboxId);
@@ -215,7 +217,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
         } as Message;
 
         // Persist partial trajectory
-        if (options?.onMessageComplete) {
+        if (options.onMessageComplete) {
           const messages = chat.messages;
           const messageIndex = messages.findIndex((m) => m.id === message.id);
           if (messageIndex >= 0) {
@@ -261,7 +263,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
       }
 
       // Call onMessageComplete for the new message
-      if (options?.onMessageComplete) {
+      if (options.onMessageComplete) {
         const messages = chat.messages;
         const messageIndex = messages.findIndex((m) => m.id === message.id);
         if (messageIndex >= 0) {
@@ -276,7 +278,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
 
   // Reset state when initialMessages changes (conversation switch)
   useEffect(() => {
-    if (options?.initialMessages) {
+    if (options.initialMessages) {
       chat.setMessages(options.initialMessages);
       setCurrentSandboxId(null);
       setSandboxStatus('disconnected');
@@ -285,10 +287,10 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
       prevMessageCountRef.current = options.initialMessages.length;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chat.setMessages is stable
-  }, [options?.initialMessages]);
+  }, [options.initialMessages]);
 
   // Track message changes and call onMessageComplete for user messages
-  const onMessageComplete = options?.onMessageComplete;
+  const onMessageComplete = options.onMessageComplete;
   useEffect(() => {
     const currentCount = chat.messages.length;
     const prevCount = prevMessageCountRef.current;
@@ -315,10 +317,11 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
       : 'ready';
 
   // Wrap sendMessage to support our API signature
+  // conversationId comes from options (stable), mode and env can be passed per-message
   const sendMessage = useCallback(async (
     content: string,
     messageMode: 'task' | 'codify-skill' = 'task',
-    messageConversationId?: string,
+    _messageConversationId?: string, // Deprecated: now uses conversationId from options
     messageEnv?: Record<string, string>
   ) => {
     if (status === 'streaming') return;
@@ -326,7 +329,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
     // Update body params ref for this request (will be used by transport.body())
     bodyParamsRef.current = {
       mode: messageMode,
-      conversationId: messageConversationId,
+      conversationId: conversationId,
       env: messageEnv,
       sandboxId: currentSandboxId,
     };
@@ -345,7 +348,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
       parts: [{ type: 'text', text: content }],
       metadata,
     });
-  }, [status, chat, currentSandboxId]);
+  }, [status, chat, currentSandboxId, conversationId]);
 
   // Clear all messages and reset state
   const clearMessages = useCallback(() => {

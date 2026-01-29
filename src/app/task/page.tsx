@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import TsugiChat from '@/components/TsugiChat';
+import NewChatClient from '@/components/NewChatClient';
 
 function LoadingState() {
   return (
@@ -26,10 +26,10 @@ function LoadingState() {
   );
 }
 
-export default function TsugiPage() {
+export default function TaskPage() {
   return (
     <Suspense fallback={<LoadingState />}>
-      <TsugiChat />
+      <NewChatClient />
     </Suspense>
   );
 }
