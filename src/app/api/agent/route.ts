@@ -48,8 +48,14 @@ export async function POST(req: Request) {
   // Prepare messages for the agent
   let messages: UIMessage[];
   if (mode === 'codify-skill') {
-    // Use conversation history if provided, otherwise trigger with 'Start'
-    messages = initialMessages.length > 0 ? [...initialMessages] : [{
+    // Filter to only include skill agent messages (exclude task agent history)
+    // This prevents the skill agent from being confused by task agent's tool calls
+    const skillMessages = initialMessages.filter(
+      (m) => (m as UIMessage & { metadata?: { agent?: string } }).metadata?.agent === 'skill'
+    );
+    // Use skill agent history if available, otherwise start fresh with 'Start'
+    // The skill agent will call get_processed_transcript to fetch task history from DB
+    messages = skillMessages.length > 0 ? skillMessages : [{
       id: crypto.randomUUID(),
       role: 'user',
       parts: [{ type: 'text', text: 'Start' }],
