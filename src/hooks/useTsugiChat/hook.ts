@@ -23,7 +23,7 @@ import { createEmptyStats, calculateCumulativeStats } from './stats-utils';
  */
 const dataPartSchemas = {
   sandbox: z.object({
-    status: z.string(),
+    status: z.enum(['sandbox_created', 'sandbox_terminated', 'sandbox_timeout']),
     sandboxId: z.string().optional(),
     reason: z.string().optional(),
   }),
@@ -152,7 +152,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
                   return {
                     ...part,
                     state: 'output-error' as const,
-                    output: 'Interrupted by user',
+                    errorText: 'Interrupted by user',
                   };
                 }
                 return part;
@@ -179,7 +179,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
             return {
               ...part,
               state: 'output-error' as const,
-              output: 'Interrupted by user',
+              errorText: 'Interrupted by user',
             };
           }
           return part;
