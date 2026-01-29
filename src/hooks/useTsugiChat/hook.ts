@@ -133,8 +133,79 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
         }
       }
     },
-    onFinish: ({ message }) => {
-      // Extract usage from persistent data parts and update cumulative stats
+    onFinish: ({ message, isAbort }) => {
+      // Clear tool progress on any finish
+      setToolProgress(new Map());
+
+      // Handle abort case - mark message as interrupted and complete interrupted tool calls
+      if (isAbort) {
+        // Update message: mark as interrupted and complete any in-progress tool calls
+        chat.setMessages((prevMessages) => {
+          return prevMessages.map((m) => {
+            if (m.id === message.id) {
+              // Find and complete interrupted tool parts
+              const updatedParts = m.parts?.map((part) => {
+                // Check if this is an interrupted tool part (has input but no output)
+                if (part.type.startsWith('tool-') &&
+                    'state' in part &&
+                    (part.state === 'input-streaming' || part.state === 'input-available')) {
+                  return {
+                    ...part,
+                    state: 'output-error' as const,
+                    output: 'Interrupted by user',
+                  };
+                }
+                return part;
+              });
+
+              return {
+                ...m,
+                parts: updatedParts,
+                metadata: {
+                  ...m.metadata,
+                  interrupted: true,
+                },
+              };
+            }
+            return m;
+          });
+        });
+
+        // Also create updated message for persistence callback
+        const updatedParts = message.parts?.map((part) => {
+          if (part.type.startsWith('tool-') &&
+              'state' in part &&
+              (part.state === 'input-streaming' || part.state === 'input-available')) {
+            return {
+              ...part,
+              state: 'output-error' as const,
+              output: 'Interrupted by user',
+            };
+          }
+          return part;
+        });
+
+        const updatedMessage = {
+          ...message,
+          parts: updatedParts,
+          metadata: {
+            ...message.metadata,
+            interrupted: true,
+          },
+        } as Message;
+
+        // Persist partial trajectory
+        if (options?.onMessageComplete) {
+          const messages = chat.messages;
+          const messageIndex = messages.findIndex((m) => m.id === message.id);
+          if (messageIndex >= 0) {
+            options.onMessageComplete(updatedMessage, messageIndex);
+          }
+        }
+        return;
+      }
+
+      // Normal completion - extract usage from persistent data parts and update cumulative stats
       const usagePart = message.parts?.find(
         (p): p is { type: 'data-usage'; id?: string; data: UsageData } =>
           p.type === 'data-usage'
