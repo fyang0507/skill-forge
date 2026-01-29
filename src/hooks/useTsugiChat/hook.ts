@@ -137,14 +137,30 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
       // Clear tool progress on any finish
       setToolProgress(new Map());
 
-      // Handle abort case - mark message as interrupted and persist partial trajectory
+      // Handle abort case - mark message as interrupted and complete interrupted tool calls
       if (isAbort) {
-        // Update message metadata with interrupted flag using setMessages to trigger re-render
+        // Update message: mark as interrupted and complete any in-progress tool calls
         chat.setMessages((prevMessages) => {
           return prevMessages.map((m) => {
             if (m.id === message.id) {
+              // Find and complete interrupted tool parts
+              const updatedParts = m.parts?.map((part) => {
+                // Check if this is an interrupted tool part (has input but no output)
+                if (part.type.startsWith('tool-') &&
+                    'state' in part &&
+                    (part.state === 'input-streaming' || part.state === 'input-available')) {
+                  return {
+                    ...part,
+                    state: 'output-error' as const,
+                    output: 'Interrupted by user',
+                  };
+                }
+                return part;
+              });
+
               return {
                 ...m,
+                parts: updatedParts,
                 metadata: {
                   ...m.metadata,
                   interrupted: true,
@@ -155,9 +171,23 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
           });
         });
 
-        // Also update the message object for persistence callback
+        // Also create updated message for persistence callback
+        const updatedParts = message.parts?.map((part) => {
+          if (part.type.startsWith('tool-') &&
+              'state' in part &&
+              (part.state === 'input-streaming' || part.state === 'input-available')) {
+            return {
+              ...part,
+              state: 'output-error' as const,
+              output: 'Interrupted by user',
+            };
+          }
+          return part;
+        });
+
         const updatedMessage = {
           ...message,
+          parts: updatedParts,
           metadata: {
             ...message.metadata,
             interrupted: true,

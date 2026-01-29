@@ -284,14 +284,12 @@ function ToolPartView({ part, streamingContent, isMessageInterrupted }: { part: 
   const input = part.input || {};
   const toolDetail = input.query || input.url || input.command || '';
 
-  // Detect if this tool was interrupted (message interrupted + tool was in-progress)
-  const isInterrupted = isMessageInterrupted &&
-    (part.state === 'input-streaming' || part.state === 'input-available');
+  // Detect if this tool was interrupted (message interrupted + tool output indicates interruption)
+  const isInterrupted = isMessageInterrupted && part.output === 'Interrupted by user';
 
   // AI SDK tool states - not loading if interrupted
-  const isLoading = !isInterrupted &&
-    (part.state === 'input-streaming' || part.state === 'input-available');
-  const hasError = part.state === 'output-error';
+  const isLoading = part.state === 'input-streaming' || part.state === 'input-available';
+  const hasError = part.state === 'output-error' && !isInterrupted;
   const result = part.output;
   // Use streaming content while loading, fall back to final result
   const resultContent = hasError
