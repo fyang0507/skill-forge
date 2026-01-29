@@ -379,8 +379,11 @@ export default function ChatClient({
           // eslint-disable-next-line react-hooks/set-state-in-effect
           setEnvVars(Object.entries(env).map(([key, value]) => ({ key, value: value as string })));
         }
-        // Send the pending message
-        sendMessage(content, 'task', conversationId, env);
+        // Delay sending to ensure useTsugiChat hook is fully initialized
+        // This prevents a race condition with the reset effect that sets messages to []
+        requestAnimationFrame(() => {
+          sendMessage(content, 'task', conversationId, env);
+        });
       } catch (e) {
         console.error('Failed to parse pending message:', e);
       }
