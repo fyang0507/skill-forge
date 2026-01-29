@@ -375,9 +375,10 @@ export default function TsugiChat() {
   }, [input]);
 
   // Handle selecting a conversation
-  const handleSelectConversation = useCallback(async (id: string) => {
+  // Returns true if switch succeeded, false if it failed (e.g., conversation not found)
+  const handleSelectConversation = useCallback(async (id: string): Promise<boolean> => {
     // Skip if already on this conversation
-    if (id === currentIdRef.current) return;
+    if (id === currentIdRef.current) return true;
 
     isSwitchingRef.current = true;
     const result = await switchConversation(id);
@@ -388,8 +389,11 @@ export default function TsugiChat() {
       setCurrentId(id);
       setCurrentMode(result.conversation.mode || 'task');
       router.push(`/task?id=${id}`, { scroll: false });
+      isSwitchingRef.current = false;
+      return true;
     }
     isSwitchingRef.current = false;
+    return false;
   }, [switchConversation, setCurrentId, router]);
 
   // Handle creating a new chat (at most one "New conversation" allowed)
@@ -439,37 +443,30 @@ export default function TsugiChat() {
 
   // Handle deleting a conversation
   const handleDeleteConversation = useCallback(async (id: string) => {
-    const deletedConv = conversations.find(c => c.id === id);
-    const wasNewConversation = deletedConv?.title === 'New conversation';
+    const wasCurrentConversation = id === currentId;
+
+    // Prevent URL sync effect from interfering during delete
+    if (wasCurrentConversation) {
+      isSwitchingRef.current = true;
+    }
 
     await deleteConversation(id);
 
-    // If we deleted the current conversation, need to navigate somewhere
-    if (id === currentId) {
+    // If we deleted the current conversation, redirect to clean /task state
+    if (wasCurrentConversation) {
       currentIdRef.current = null;
-
-      // Find another conversation to switch to (excluding the deleted one)
-      const otherConv = conversations.find(c => c.id !== id);
-
-      if (otherConv) {
-        // Switch to another existing conversation
-        await handleSelectConversation(otherConv.id);
-      } else if (!wasNewConversation) {
-        // No other conversations exist and we deleted a real conversation - create new
-        handleNewChat(id);
-      }
-      // If we deleted a "New conversation" and no others exist, just clear the URL
-      // The user can click "New task" when ready
-      else {
-        setLoadedMessages([]);
-        messageCountRef.current = 0;
-        clearMessages();
-        setCurrentId(null);
-        setCurrentMode('task');
-        router.push('/task', { scroll: false });
-      }
+      setLoadedMessages([]);
+      messageCountRef.current = 0;
+      clearMessages();
+      setCurrentId(null);
+      setCurrentMode('task');
+      router.replace('/task');
+      // Reset after a short delay to allow URL to update
+      setTimeout(() => {
+        isSwitchingRef.current = false;
+      }, 100);
     }
-  }, [conversations, deleteConversation, currentId, handleNewChat, handleSelectConversation, clearMessages, setCurrentId, router]);
+  }, [deleteConversation, currentId, clearMessages, setCurrentId, router]);
 
   // Initialize from URL on mount or browser navigation
   // This syncs React state with the browser URL (an external system),
@@ -481,9 +478,19 @@ export default function TsugiChat() {
     const id = searchParams.get('id');
     if (id && id !== currentIdRef.current) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      handleSelectConversation(id);
+      handleSelectConversation(id).then((success) => {
+        // If the conversation doesn't exist (deleted), redirect to clean state
+        if (!success) {
+          setLoadedMessages([]);
+          messageCountRef.current = 0;
+          clearMessages();
+          setCurrentId(null);
+          setCurrentMode('task');
+          router.push('/task', { scroll: false });
+        }
+      });
     }
-  }, [searchParams, handleSelectConversation]);
+  }, [searchParams, handleSelectConversation, clearMessages, setCurrentId, router]);
 
   // Handle ?compare=<id> query parameter to load a pinned comparison
   // This syncs React state with the browser URL (an external system)
