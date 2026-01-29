@@ -76,13 +76,33 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
   // Memoize initial messages to prevent unnecessary re-renders
   const initialMessages = useMemo(() => options?.initialMessages ?? [], [options?.initialMessages]);
 
+  // Refs to allow custom fetch to access state setters without recreating transport
+  const setCurrentSandboxIdRef = useRef(setCurrentSandboxId);
+  const setSandboxStatusRef = useRef(setSandboxStatus);
+  setCurrentSandboxIdRef.current = setCurrentSandboxId;
+  setSandboxStatusRef.current = setSandboxStatus;
+
   // Create transport with dynamic body - using a function for body to get latest params
   // Note: bodyParamsRef is captured by reference (not .current) to avoid accessing ref during render
   const transport = useMemo(() => {
     const paramsRef = bodyParamsRef;
+    const sandboxIdRef = setCurrentSandboxIdRef;
+    const sandboxStatusRef = setSandboxStatusRef;
+
     return new DefaultChatTransport<Message>({
       api: '/api/agent',
       body: () => paramsRef.current,
+      // Custom fetch to intercept response headers for sandbox ID
+      fetch: async (input, init) => {
+        const response = await fetch(input, init);
+        // Read sandbox ID from response headers (set by server for new conversations)
+        const sandboxId = response.headers.get('X-Sandbox-Id');
+        if (sandboxId) {
+          sandboxStatusRef.current('connected');
+          sandboxIdRef.current(sandboxId);
+        }
+        return response;
+      },
     });
   }, []);
 
@@ -92,7 +112,7 @@ export function useTsugiChat(options?: UseTsugiChatOptions) {
     dataPartSchemas,
     messages: initialMessages,
     onData: (part) => {
-      // Handle transient sandbox events
+      // Handle transient sandbox events (legacy support for sandbox_terminated/timeout)
       if (part.type === 'data-sandbox') {
         const data = part.data as SandboxData;
         if (data.status === 'sandbox_created') {

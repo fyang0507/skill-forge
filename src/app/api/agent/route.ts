@@ -3,9 +3,7 @@ import { createSkillAgent } from '@/lib/agent/skill-agent';
 import { clearSandboxExecutor, getSandboxExecutor } from '@/lib/sandbox/executor';
 import { mergePlaygroundEnv } from '@/lib/tools/playground-env';
 import { runWithRequestContext } from '@/lib/agent/request-context';
-import { traced, flush } from 'braintrust';
-import { fetchTraceStats } from '@/lib/braintrust-api';
-import { createUIMessageStream, createUIMessageStreamResponse, convertToModelMessages, type UIMessage } from 'ai';
+import { createAgentUIStreamResponse, consumeStream, type UIMessage, type Agent } from 'ai';
 
 type AgentMode = 'task' | 'codify-skill';
 
@@ -37,169 +35,91 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Messages array is required' }, { status: 400 });
   }
 
-  // Track abort state for sandbox cleanup
-  let aborted = false;
-  let sandboxUsed = false;
-  let sandboxIdEmitted = false;
+  // Initialize sandbox upfront for new task conversations
+  // This allows us to pass the sandbox ID in headers before streaming starts
   let currentSandboxId: string | undefined = requestSandboxId || undefined;
+  if (mode === 'task' && isNewConversation) {
+    currentSandboxId = await executor.initialize();
+  }
 
-  // Listen for client abort (when user stops the agent)
-  req.signal.addEventListener('abort', () => {
-    aborted = true;
-  });
+  // Track sandbox usage for cleanup on abort
+  let sandboxUsed = false;
 
-  const stream = createUIMessageStream({
-    execute: async ({ writer }) => {
-      // Wrap with request context so skill agent's tool can access conversationId/sandboxId/env
-      // Also pass writer so nested tools can emit progress updates
-      await runWithRequestContext({ conversationId, sandboxId: currentSandboxId, env: mergedEnv, streamWriter: writer }, async () => {
-        try {
-          // Create agent per-request INSIDE request context so it picks up user-provided API key
-          let agent;
-          let messages: UIMessage[];
+  // Prepare messages for the agent
+  let messages: UIMessage[];
+  if (mode === 'codify-skill') {
+    // Use conversation history if provided, otherwise trigger with 'Start'
+    messages = initialMessages.length > 0 ? [...initialMessages] : [{
+      id: crypto.randomUUID(),
+      role: 'user',
+      parts: [{ type: 'text', text: 'Start' }],
+    } as UIMessage];
+  } else {
+    messages = [...initialMessages];
+  }
 
-          if (mode === 'codify-skill') {
-            agent = createSkillAgent();
-            // Use conversation history if provided (follow-up messages), otherwise trigger with 'Start'
-            messages = initialMessages.length > 0 ? [...initialMessages] : [{
-              id: crypto.randomUUID(),
-              role: 'user',
-              parts: [{ type: 'text', text: 'Start' }],
-            } as UIMessage];
-          } else {
-            agent = createTaskAgent();
-            messages = [...initialMessages];
+  // Create agent within request context so it picks up user-provided API key from env
+  // Note: The agent and streaming execution must happen within this context
+  // so nested tools can access conversationId, sandboxId, and env
+  return runWithRequestContext(
+    { conversationId, sandboxId: currentSandboxId, env: mergedEnv },
+    async () => {
+      // Cast to generic Agent type since task and skill agents have different tool sets
+      // but createAgentUIStreamResponse only needs the common Agent interface
+      const agent = (mode === 'codify-skill' ? createSkillAgent() : createTaskAgent()) as unknown as Agent;
+
+      const startTime = Date.now();
+
+      // Use createAgentUIStreamResponse for proper abort signal propagation
+      // The consumeSseStream option ensures onFinish is called even when aborted
+      // See: https://ai-sdk.dev/docs/troubleshooting/stream-abort-handling
+      return createAgentUIStreamResponse({
+        agent,
+        uiMessages: messages,
+        abortSignal: req.signal,
+        consumeSseStream: consumeStream,
+        headers: {
+          // Pass sandbox ID in header for new conversations
+          // Client reads this via onResponse callback
+          ...(currentSandboxId && currentSandboxId !== requestSandboxId
+            ? { 'X-Sandbox-Id': currentSandboxId }
+            : {}),
+        },
+        onStepFinish: async (stepResult) => {
+          // Track sandbox usage from tool calls for cleanup on abort
+          // StepResult.toolCalls contains the tool calls made in this step
+          const toolCalls = stepResult.toolCalls as Array<{ toolName?: string; args?: { command?: string } }>;
+          if (toolCalls?.some((tc) => {
+            if (tc.toolName !== 'shell') return false;
+            const command = tc.args?.command;
+            return command && !command.startsWith('skill ');
+          })) {
+            sandboxUsed = true;
           }
-
-          const startTime = Date.now();
-
-          // Convert UIMessages to ModelMessages using AI SDK's converter
-          const modelMessages = await convertToModelMessages(messages);
-
-          // Wrap agent execution with Braintrust tracing to capture root span ID
-          let rootSpanId: string | undefined;
-
-          const result = await traced(
-            async (span) => {
-              const spanAny = span as unknown as Record<string, unknown>;
-              rootSpanId = (spanAny._rootSpanId as string) ?? span.id;
-              return agent.stream({ messages: modelMessages, abortSignal: req.signal });
-            },
-            { name: `${mode === 'codify-skill' ? 'skill' : 'task'}-agent-${conversationId || 'anonymous'}` }
-          );
-
-          // Stream UI message chunks, tracking sandbox usage from tool calls
-          const uiStream = result.toUIMessageStream();
-          for await (const chunk of uiStream) {
-            if (aborted) break;
-
-            // Track sandbox usage from tool calls
-            // When a shell command (non-skill) is detected, eagerly initialize the sandbox
-            // and emit its ID to the client before the command runs
-            if (chunk.type === 'tool-input-available' && chunk.toolName === 'shell') {
-              const input = chunk.input as { command?: string } | undefined;
-              const command = input?.command;
-              if (command && !command.startsWith('skill ')) {
-                sandboxUsed = true;
-
-                // Eagerly initialize sandbox and emit ID on first shell command
-                if (!sandboxIdEmitted) {
-                  const newSandboxId = await executor.initialize();
-                  if (newSandboxId !== requestSandboxId) {
-                    currentSandboxId = newSandboxId;
-                    writer.write({
-                      type: 'data-sandbox',
-                      data: { status: 'sandbox_created', sandboxId: newSandboxId },
-                      transient: true,
-                    });
-                  }
-                  sandboxIdEmitted = true;
-                }
-              }
-            }
-
-            // Forward all chunks to the stream
-            writer.write(chunk);
-          }
-
+        },
+        onFinish: async ({ isAborted }) => {
           const executionTimeMs = Date.now() - startTime;
 
-          // Fetch complete token stats from Braintrust BTQL
-          let braintrustStats = null;
-          if (rootSpanId) {
-            await flush();
-            braintrustStats = await fetchTraceStats(rootSpanId);
-          }
-
-          console.log('[Braintrust Stats]', {
-            rootSpanId,
-            stats: braintrustStats,
-            executionTimeMs,
-          });
-
-          // Send usage stats as persistent data (will be part of message)
-          writer.write({
-            type: 'data-usage',
-            data: {
-              usage: braintrustStats ? {
-                promptTokens: braintrustStats.promptTokens,
-                completionTokens: braintrustStats.completionTokens,
-                cachedContentTokenCount: braintrustStats.cachedTokens,
-                reasoningTokens: braintrustStats.reasoningTokens,
-              } : null,
-              executionTimeMs,
-              agent: mode === 'codify-skill' ? 'skill' : 'task',
-            },
-          });
-
-        } catch (error) {
-          // Extract meaningful error message from various error types
-          let errorMessage = 'Unknown error';
-          if (error instanceof Error) {
-            errorMessage = error.message;
-            const anyError = error as unknown as Record<string, unknown>;
-            if (anyError.cause && typeof anyError.cause === 'object') {
-              const cause = anyError.cause as Record<string, unknown>;
-              if (cause.message) {
-                errorMessage = `${error.message}: ${cause.message}`;
+          if (isAborted) {
+            console.log('[Agent] Stream aborted by user');
+            // Clean up sandbox if user aborted and sandbox was used (only in deployed env)
+            if (sandboxUsed && process.env.VERCEL === '1') {
+              try {
+                await clearSandboxExecutor();
+                console.log('[Agent] Sandbox cleaned up after abort');
+              } catch (cleanupError) {
+                console.error('[Agent] Failed to cleanup sandbox:', cleanupError);
               }
             }
-            if (anyError.responseBody) {
-              errorMessage = `${error.message} - ${JSON.stringify(anyError.responseBody)}`;
-            }
+          } else {
+            console.log('[Agent] Stream completed normally', { executionTimeMs });
           }
-          console.error('[Agent] Error during streaming:', error);
-          writer.write({ type: 'error', errorText: errorMessage });
-        } finally {
-          // Clean up sandbox if user aborted and sandbox was used (only in deployed env to save costs)
-          if (aborted && sandboxUsed && process.env.VERCEL === '1') {
-            try {
-              await clearSandboxExecutor();
-              writer.write({
-                type: 'data-sandbox',
-                data: { status: 'sandbox_terminated', reason: 'User aborted' },
-                transient: true,
-              });
-              console.log('[Agent] Sandbox cleaned up after abort');
-            } catch (cleanupError) {
-              console.error('[Agent] Failed to cleanup sandbox:', cleanupError);
-            }
-          }
-        }
+        },
+        onError: (error) => {
+          console.error('[Agent] Stream error:', error);
+          return error instanceof Error ? error.message : 'Unknown error';
+        },
       });
-    },
-    onError: (error) => {
-      console.error('[Agent] Stream error:', error);
-      return error instanceof Error ? error.message : 'Unknown error';
-    },
-    onFinish: async ({ isAborted }) => {
-      if (isAborted) {
-        console.log('[Agent] Stream aborted by user');
-      } else {
-        console.log('[Agent] Stream completed normally');
-      }
-    },
-  });
-
-  return createUIMessageStreamResponse({ stream });
+    }
+  );
 }
