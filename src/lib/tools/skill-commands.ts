@@ -10,8 +10,6 @@ const skillCommands: Record<string, CommandHandler> = {
   skill get <name>                        - Read a skill (includes file list)
   skill set <name> "..."                  - Write/update a skill
   skill get-file <name> <filename>        - Read a file from skill
-  skill copy-to-sandbox <name> <filename> - Copy skill file to sandbox
-  skill add-file <filename> <name>        - Add sandbox file to a skill
   skill suggest "..." --name="name"       - Suggest codifying a learned procedure
   skill suggest "..." --name="name" --force - Skip similar skill check`,
 
@@ -53,47 +51,6 @@ const skillCommands: Record<string, CommandHandler> = {
     const storage = getStorage();
     await storage.set(name, content);
     return `Skill "${name}" saved`;
-  },
-
-  'get-file': async (args) => {
-    // skill get-file <skill-name> <filename>
-    const match = args.match(/^(\S+)\s+(\S+)$/);
-    if (!match) return 'Usage: skill get-file <skill-name> <filename>';
-    const [, skillName, filename] = match;
-    const storage = getStorage();
-    const content = await storage.getFile(skillName, filename);
-    return content || `File "${filename}" not found in skill "${skillName}"`;
-  },
-
-  'copy-to-sandbox': async (args) => {
-    // skill copy-to-sandbox <skill-name> <filename>
-    const match = args.match(/^(\S+)\s+(\S+)$/);
-    if (!match) return 'Usage: skill copy-to-sandbox <skill-name> <filename>';
-    const [, skillName, filename] = match;
-    const storage = getStorage();
-    const content = await storage.getFile(skillName, filename);
-    if (!content) return `File "${filename}" not found in skill "${skillName}"`;
-
-    const executor = await getSandboxExecutor();
-    await executor.writeFile(filename, content);
-    return `Copied to sandbox: ${filename}`;
-  },
-
-  'add-file': async (args) => {
-    // skill add-file <filename> <skill-name>
-    const match = args.match(/^(\S+)\s+(\S+)$/);
-    if (!match) return 'Usage: skill add-file <filename> <skill-name>';
-    const [, filename, skillName] = match;
-
-    const executor = await getSandboxExecutor();
-    const content = await executor.readFile(filename);
-    if (!content) {
-      return `File "${filename}" not found in sandbox`;
-    }
-
-    const storage = getStorage();
-    await storage.addFile(skillName, filename, content);
-    return `Added ${filename} to skill "${skillName}"`;
   },
 
   'suggest': async (args) => {
