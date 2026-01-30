@@ -1,5 +1,4 @@
 import { getStorage } from '../skills/storage';
-import { getSandboxExecutor } from '../sandbox/executor';
 
 export type CommandHandler = (args: string) => string | Promise<string>;
 
@@ -9,7 +8,6 @@ const skillCommands: Record<string, CommandHandler> = {
   skill search <keyword>                  - Search skills by keyword
   skill get <name>                        - Read a skill (includes file list)
   skill set <name> "..."                  - Write/update a skill
-  skill get-file <name> <filename>        - Read a file from skill
   skill suggest "..." --name="name"       - Suggest codifying a learned procedure
   skill suggest "..." --name="name" --force - Skip similar skill check`,
 
