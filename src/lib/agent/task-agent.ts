@@ -1,6 +1,6 @@
 import { GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
 import { StopCondition, stepCountIs } from 'ai';
-import { getFlashModel } from './model-provider';
+import { getFlashModel, getProModel } from './model-provider';
 import { getAgent } from './braintrust-wrapper';
 import { executeShellTool } from './tools/execute-shell';
 import { searchTool, analyzeUrlTool } from './tools/grounding-tools';
@@ -95,7 +95,7 @@ const hasCompleteSignal: StopCondition<typeof taskAgentTools> = ({ steps }) => {
 export function createTaskAgent() {
   const Agent = getAgent();
   return new Agent({
-    model: getFlashModel(),
+    model: getProModel(),
     instructions: TASK_AGENT_INSTRUCTIONS,
     tools: taskAgentTools,
     stopWhen: [stepCountIs(100), hasCompleteSignal],
