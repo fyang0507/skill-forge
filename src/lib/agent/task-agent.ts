@@ -16,9 +16,7 @@ Before starting, classify the task:
 # Execution Protocol
 
 ## Phase 1: Discovery (Procedural tasks only)
-For procedural tasks, check if a relevant skill exists before execution:
-1. Run \`skill search <topic>\` to find relevant skills
-2. **MANDATORY**: If search returns a skill, run \`skill get <name>\` to read its full details before proceeding
+For procedural tasks, check if a relevant skill exists before execution.
 
 ## Phase 2: Plan, Execution & Verification
 - If a skill exists: Follow its documented procedure.
@@ -56,7 +54,7 @@ When task is verified complete:
 **Anti-patterns**: Composite queries (multiple topics in one search). Using search/analyze_url for repetitive data fetching—write a script instead.
 
 #### Skill Commands (prefix with "skill")
-skill list | skill search <phrase> | skill get name | skill suggest "desc" --name="name"
+skill list | skill search <phrase> | skill get <name> | skill suggest "desc" --name="name"
 
 Note: skill search treats input as a single phrase. Skill commands DO NOT support chaining (;). Run skill shell calls separately.
 
