@@ -108,22 +108,40 @@ export async function POST(req: Request) {
             { name: `${mode === 'codify-skill' ? 'skill' : 'task'}-agent-${conversationId || 'anonymous'}` }
           );
 
-          // Stream UI message chunks, tracking sandbox usage from tool calls
-          const uiStream = result.toUIMessageStream();
-          for await (const chunk of uiStream) {
-            if (aborted) break;
-
-            // Track sandbox usage from tool calls (for cleanup on abort)
-            if (chunk.type === 'tool-input-available' && chunk.toolName === 'shell') {
-              const input = chunk.input as { command?: string } | undefined;
-              const command = input?.command;
-              if (command && !command.startsWith('skill ')) {
-                sandboxUsed = true;
-              }
+          // Heartbeat to detect client disconnect (req.signal is unreliable in Next.js streaming)
+          // Periodically write a transient data message; if it fails, client has disconnected
+          const heartbeatInterval = setInterval(() => {
+            try {
+              // Use transient data message (won't be persisted, but detects closed connection)
+              writer.write({ type: 'data-heartbeat', data: {}, transient: true });
+            } catch {
+              console.log('[Agent] Heartbeat failed, client disconnected');
+              aborted = true;
+              agentAbortController.abort();
+              clearInterval(heartbeatInterval);
             }
+          }, 500); // Check every 500ms
 
-            // Forward all chunks to the stream
-            writer.write(chunk);
+          try {
+            // Stream UI message chunks, tracking sandbox usage from tool calls
+            const uiStream = result.toUIMessageStream();
+            for await (const chunk of uiStream) {
+              if (aborted) break;
+
+              // Track sandbox usage from tool calls (for cleanup on abort)
+              if (chunk.type === 'tool-input-available' && chunk.toolName === 'shell') {
+                const input = chunk.input as { command?: string } | undefined;
+                const command = input?.command;
+                if (command && !command.startsWith('skill ')) {
+                  sandboxUsed = true;
+                }
+              }
+
+              // Forward all chunks to the stream
+              writer.write(chunk);
+            }
+          } finally {
+            clearInterval(heartbeatInterval);
           }
 
           const executionTimeMs = Date.now() - startTime;
