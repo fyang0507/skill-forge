@@ -19,7 +19,7 @@ Before starting, classify the task:
 For procedural tasks, check if a relevant skill exists before execution.
 
 ## Phase 2: Plan, Execution & Verification
-- If a skill exists: **Apply the skill's procedure to the current task.** Use the same approach, sources, and delivery method—adapt inputs as needed. Do not research alternatives; skills encode learned procedures.
+- If a skill exists: **Apply the skill's procedure exactly.** Follow the same steps, sources, and delivery method. Only adapt the inputs (tickers, URLs, etc.)—never skip steps or change delivery. Skills encode user preferences; deviating defeats the purpose.
 - If no skill exists: Research via search if unsure about the approach, then formulate a plan and execute.
 - Verification: Must verify the result. If not working, keep trying with a different method.
 
