@@ -37,7 +37,7 @@ const skillCommands: Record<string, CommandHandler> = {
       output += '\n\n---\n## Skill Files\n';
       output += skill.files.map((f) => `- ${name}/${f}`).join('\n');
     }
-    output += '\n\n---\n**⚠️ EXECUTE THIS SKILL: Run the script/procedure above. Do not research alternatives.**';
+    output += '\n\n---\n**→ Apply this procedure to your current task. Use the same approach and sources.**';
     return output;
   },
 

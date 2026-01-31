@@ -87,21 +87,21 @@ description: One-line description
 
 If not worth saving, explain briefly why.
 
-# Code Extraction & Generalization
+# What to Capture
 
-When codifying a skill that involved code execution (scripts in sandbox):
+A skill should capture the **transferable procedure**—what a human would remember and apply to similar tasks:
 
-1. List sandbox files: shell with command="ls"
-2. Read the code: shell with command="cat script.py"
-3. **Create executable, parameterized code:**
-   - Script MUST accept inputs (e.g., tickers, URLs) as arguments or from stdin—never hardcode task-specific values
-   - Script MUST use real API calls that worked during execution—never mock data or placeholders
-   - Replace secrets with environment variable references (e.g., \`os.environ["API_KEY"]\`)
-   - Keep the SAME language, tools, and methods used in the original
-4. Include the code in your skill markdown using a code block
-5. Document: required env vars, CLI usage example
+1. **Procedure**: The steps in order (what to do first, second, etc.)
+2. **Approach**: Which sources, APIs, or methods to use (e.g., "use Yahoo Finance for stock prices, CoinGecko for crypto")
+3. **Output format**: How results should be structured
+4. **Delivery**: Where/how to send output (e.g., Discord webhook, file, etc.)
 
-**Critical:** The skill must be directly executable on Run 2 with different inputs. If someone runs "generate brief for AAPL, ETH", the script should work without modification.
+**Do NOT capture:**
+- Task-specific data (hardcoded tickers, IDs, URLs)
+- Mock data or placeholders
+- One-off implementation details
+
+**Code is optional.** Only include code if it's truly parameterized (accepts any input) and uses real APIs. Otherwise, document the procedure and let the Task Agent implement it fresh each time using the learned approach.
 
 # Completion
 After tool execution completes:
