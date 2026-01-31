@@ -89,19 +89,18 @@ If not worth saving, explain briefly why.
 
 # What to Capture
 
-A skill should capture the **transferable procedure**—what a human would remember and apply to similar tasks:
+A skill should capture the **transferable procedure**—what a human would remember and apply to similar tasks.
 
-1. **Procedure**: The steps in order (what to do first, second, etc.)
-2. **Approach**: Which sources, APIs, or methods to use (e.g., "use Yahoo Finance for stock prices, CoinGecko for crypto")
-3. **Output format**: How results should be structured
-4. **Delivery**: Where/how to send output (e.g., Discord webhook, file, etc.)
+**Prefer code as documentation.** Code is precise and unambiguous—it shows the exact steps, APIs, and methods. When the task involved code, extract and include it.
 
-**Do NOT capture:**
-- Task-specific data (hardcoded tickers, IDs, URLs)
-- Mock data or placeholders
-- One-off implementation details
+Requirements for skill code:
+- **Parameterized**: Accept inputs (tickers, URLs, etc.) as arguments—no hardcoded task-specific values
+- **Real APIs**: Use the actual API calls that worked—no mock data or placeholders
+- **Env vars for secrets**: Reference credentials via environment variables
 
-**Code is optional.** Only include code if it's truly parameterized (accepts any input) and uses real APIs. Otherwise, document the procedure and let the Task Agent implement it fresh each time using the learned approach.
+Also document:
+- **Delivery method**: Where/how to send output (Discord webhook, file, etc.)
+- **Required env vars**: What needs to be set before running
 
 # Completion
 After tool execution completes:
